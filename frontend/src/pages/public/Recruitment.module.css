@@ -1,0 +1,197 @@
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.tab {
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.tab:hover {
+  color: var(--text);
+  border-color: rgba(77, 163, 255, 0.45);
+}
+
+.tabActive {
+  color: var(--accent-bright);
+  background: rgba(77, 163, 255, 0.12);
+  border-color: rgba(77, 163, 255, 0.5);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.meritHero {
+  text-align: center;
+  padding: 1.75rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(77, 163, 255, 0.25);
+  background: linear-gradient(145deg, rgba(77, 163, 255, 0.12), rgba(3, 13, 26, 0.35));
+}
+
+.meritLabel {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.meritScore {
+  margin: 0.35rem 0;
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--accent-bright);
+  line-height: 1;
+}
+
+.meritHint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.gridTwo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.card h2 {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+}
+
+.formCard {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.rulesCard {
+  max-width: 720px;
+}
+
+.rulesBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rulesBody p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.65;
+  font-size: 0.98rem;
+}
+
+.rulesBody p:first-child {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--accent-bright);
+  margin-bottom: 0.35rem;
+}
+
+.formCard h2 {
+  text-align: center;
+}
+
+.formCard .anonNote {
+  text-align: center;
+}
+
+.formCard .actions,
+.formCard button[type='submit'] {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.anonNote {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.list,
+.leaderboard {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.list li,
+.leaderboard li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.list li:last-child,
+.leaderboard li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.list time,
+.meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
+.points {
+  color: var(--accent-bright);
+  font-family: var(--font-display);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rank {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(77, 163, 255, 0.15);
+  color: var(--accent-bright);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 800px) {
+  .gridTwo {
+    grid-template-columns: 1fr;
+  }
+}

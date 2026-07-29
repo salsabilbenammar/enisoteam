@@ -1,0 +1,333 @@
+.page {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  position: relative;
+  min-height: calc(100vh - var(--nav-h));
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 2.5rem 0 3.5rem;
+}
+
+.heroBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 55% 50% at 85% 45%, rgba(77, 163, 255, 0.16), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 10% 80%, rgba(34, 211, 238, 0.08), transparent 55%),
+    linear-gradient(160deg, #041428 0%, #030d1a 55%, #061933 100%);
+}
+
+.heroGrid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(77, 163, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77, 163, 255, 0.045) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, black 15%, transparent 75%);
+}
+
+.heroInner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+  gap: 2.5rem 3rem;
+  align-items: center;
+  width: min(1140px, calc(100% - 2rem));
+}
+
+.copyCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  animation: rise 0.85s ease both;
+}
+
+.brandBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: flex-start;
+  margin-bottom: 0.55rem;
+}
+
+.logo {
+  width: 152px;
+  height: 152px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  margin-bottom: 0.85rem;
+  display: block;
+  background: rgba(7, 26, 51, 0.6);
+  box-shadow:
+    0 0 0 2px rgba(77, 163, 255, 0.28),
+    0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  line-height: 0.95;
+  text-align: center;
+}
+
+.headline {
+  margin: 0 0 0.85rem;
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+}
+
+.lead {
+  margin: 0 0 1.5rem;
+  max-width: 26rem;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.sliderCol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+  animation: rise 0.95s ease 0.08s both;
+}
+
+.sliderFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 11;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(77, 163, 255, 0.28);
+  background: rgba(3, 13, 26, 0.75);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(77, 163, 255, 0.08);
+}
+
+.sliderTrack {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.7s ease;
+  will-change: transform;
+}
+
+.slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  min-width: 100%;
+}
+
+.slideMedia {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sliderEmpty {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 0.35rem;
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--text-muted);
+  background:
+    linear-gradient(145deg, rgba(77, 163, 255, 0.08), transparent 55%),
+    rgba(7, 26, 51, 0.9);
+}
+
+.sliderEmpty p {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.sliderEmpty span {
+  font-size: 0.9rem;
+}
+
+.slideCaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1.2rem 1.1rem 0.95rem;
+  background: linear-gradient(transparent, rgba(3, 13, 26, 0.88));
+}
+
+.slideCaption strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(77, 163, 255, 0.45);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.dotActive,
+.dot:hover {
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  transform: scale(1.15);
+}
+
+.pillarsSection {
+  border-top: 1px solid rgba(77, 163, 255, 0.12);
+  background: linear-gradient(180deg, rgba(7, 26, 51, 0.45), transparent 40%);
+  padding: 4rem 0 5rem;
+  position: relative;
+}
+
+.sectionHead {
+  margin-bottom: 2rem;
+  max-width: 36rem;
+}
+
+.sectionHead h2 {
+  font-size: clamp(1.7rem, 3.5vw, 2.3rem);
+  margin-bottom: 0.45rem;
+}
+
+.sectionHead p {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.pillar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.5rem 1.35rem;
+  border-top: 2px solid rgba(77, 163, 255, 0.45);
+  background: linear-gradient(180deg, rgba(77, 163, 255, 0.07), transparent 70%);
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.pillar:hover {
+  background: linear-gradient(180deg, rgba(77, 163, 255, 0.12), transparent 75%);
+  transform: translateY(-3px);
+}
+
+.pillar h3 {
+  margin: 0;
+  font-size: 1.35rem;
+  text-transform: uppercase;
+}
+
+.pillar p {
+  margin: 0;
+  flex: 1;
+}
+
+.pillarLink {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  color: var(--accent-bright);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeSlide {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 960px) {
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .copyCol {
+    align-items: flex-start;
+  }
+
+  .sliderFrame {
+    aspect-ratio: 16 / 10;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 1.75rem 0 2.5rem;
+    min-height: auto;
+  }
+
+  .logo {
+    width: 128px;
+    height: 128px;
+  }
+
+  .pillars {
+    grid-template-columns: 1fr;
+  }
+}

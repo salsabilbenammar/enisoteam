@@ -1,0 +1,177 @@
+.section {
+  padding: 0.5rem 0 0.25rem;
+  border-top: 1px solid rgba(77, 163, 255, 0.14);
+  padding-top: 2.5rem;
+}
+
+.head {
+  margin-bottom: 1.75rem;
+  max-width: 36rem;
+}
+
+.head h2 {
+  font-size: clamp(1.5rem, 3.2vw, 2rem);
+  margin-bottom: 0.45rem;
+}
+
+.head p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.2fr);
+  gap: 1.5rem 2rem;
+  align-items: start;
+}
+
+.points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.point {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    color 0.25s ease,
+    transform 0.2s ease;
+}
+
+.point:hover {
+  color: var(--text);
+  background: rgba(77, 163, 255, 0.06);
+  border-color: rgba(77, 163, 255, 0.18);
+}
+
+.pointActive {
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(77, 163, 255, 0.14), rgba(34, 211, 238, 0.06));
+  border-color: rgba(77, 163, 255, 0.35);
+  transform: translateX(4px);
+}
+
+.bullet {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 1.5px solid rgba(77, 163, 255, 0.45);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.bulletCore {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.25s, transform 0.25s;
+}
+
+.pointActive .bullet {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 4px rgba(77, 163, 255, 0.12);
+}
+
+.pointActive .bulletCore {
+  background: var(--accent-bright);
+  transform: scale(1.15);
+}
+
+.pointLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.02rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.panel {
+  min-height: 220px;
+  border-radius: 16px;
+  border: 1px solid rgba(77, 163, 255, 0.22);
+  background:
+    linear-gradient(155deg, rgba(77, 163, 255, 0.1), rgba(7, 26, 51, 0.55) 45%),
+    rgba(7, 26, 51, 0.85);
+  padding: 1.6rem 1.5rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-bright), var(--cyan, #22d3ee), transparent);
+}
+
+.panelInner {
+  position: relative;
+  z-index: 1;
+  animation: reveal 0.35s ease;
+}
+
+.panelIndex {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--accent-bright);
+  margin-bottom: 0.65rem;
+}
+
+.panel h3 {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.25rem, 2.5vw, 1.55rem);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.panel p {
+  margin: 0;
+  line-height: 1.75;
+  font-size: 1.02rem;
+  color: var(--text-muted);
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pointActive {
+    transform: none;
+  }
+}

@@ -1,0 +1,27 @@
+.page {
+  display: grid;
+  place-items: center;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.logo {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 auto 1.25rem;
+  box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.25), 0 8px 32px rgba(77, 163, 255, 0.2);
+}
+
+.header h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.header p {
+  margin: 0;
+}

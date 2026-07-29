@@ -1,0 +1,56 @@
+.marquee {
+  overflow: hidden;
+  width: 100%;
+  padding: 2rem 0 1rem;
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+
+.track {
+  display: flex;
+  gap: 5.5rem;
+  width: max-content;
+  animation: scrollRight 55s linear infinite;
+}
+
+.marquee:hover .track,
+.paused .track {
+  animation-play-state: paused;
+}
+
+.hint {
+  text-align: center;
+  margin: 1.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+@keyframes scrollRight {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .track {
+    gap: 1.75rem;
+    animation-duration: 40s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .marquee {
+    mask-image: none;
+    overflow: visible;
+  }
+}

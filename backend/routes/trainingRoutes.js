@@ -1,0 +1,13 @@
+const express = require('express');
+const trainingController = require('../controllers/trainingController');
+const { requireAdmin, optionalAuth } = require('../middlewares/authMiddleware');
+
+const router = express.Router();
+
+router.get('/', optionalAuth, trainingController.getAll);
+router.get('/:id', optionalAuth, trainingController.getById);
+router.post('/', requireAdmin, trainingController.create);
+router.put('/:id', requireAdmin, trainingController.update);
+router.delete('/:id', requireAdmin, trainingController.remove);
+
+module.exports = router;

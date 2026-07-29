@@ -1,0 +1,113 @@
+.shell {
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 2px rgba(77, 163, 255, 0.25);
+}
+
+.brand strong {
+  display: block;
+  font-family: var(--font-display);
+  color: var(--accent-bright);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.brand span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.nav {
+  display: grid;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.nav a {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 0.2s, color 0.2s;
+}
+
+.nav a:hover {
+  background: rgba(77, 163, 255, 0.08);
+  color: var(--text);
+}
+
+.active {
+  background: rgba(77, 163, 255, 0.14) !important;
+  color: var(--accent-bright) !important;
+  border-left: 3px solid var(--accent);
+}
+
+.user p {
+  margin: 0 0 0.75rem;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.back {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.back:hover {
+  color: var(--accent-bright);
+}
+
+.content {
+  padding: 1.75rem 2rem;
+  overflow-x: auto;
+  background:
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(37, 99, 235, 0.08), transparent),
+    var(--bg);
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}

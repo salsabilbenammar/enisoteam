@@ -1,0 +1,107 @@
+.list {
+  display: grid;
+  gap: 2.75rem;
+}
+
+.block {
+  display: grid;
+  gap: 1.75rem;
+  align-items: center;
+  padding-bottom: 2.25rem;
+  border-bottom: 1px solid rgba(77, 163, 255, 0.12);
+}
+
+.block:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* Même grille pour Histoire et Mission → cadres photo identiques */
+.photoLeft,
+.photoRight {
+  grid-template-columns: 1fr 1fr;
+}
+
+.textOnly {
+  grid-template-columns: 1fr;
+}
+
+.media {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(77, 163, 255, 0.2);
+  background: var(--bg-elevated);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(77, 163, 255, 0.08);
+}
+
+.mediaFloat {
+  animation: floatMedia 5s ease-in-out infinite;
+}
+
+.mediaPlaceholder {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(145deg, rgba(77, 163, 255, 0.1), rgba(7, 26, 51, 0.7)),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(77, 163, 255, 0.04) 10px,
+      rgba(77, 163, 255, 0.04) 20px
+    );
+  border-style: dashed;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 1.25rem;
+}
+
+.media img,
+.mediaVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mediaVideo {
+  background: #000;
+}
+
+.copy h2 {
+  font-size: clamp(1.4rem, 3vw, 1.85rem);
+  margin-bottom: 0.85rem;
+}
+
+.copy p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.75;
+  font-size: 1.02rem;
+}
+
+@keyframes floatMedia {
+  0%,
+  100% {
+    transform: translateY(-4px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@media (max-width: 800px) {
+  .photoLeft,
+  .photoRight {
+    grid-template-columns: 1fr;
+  }
+}
