@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
-import styles from './Trainings.module.css';
+import styles from './ActivityCards.module.css';
 
 const niveauLabel = {
   debutant: 'Débutant',
@@ -35,45 +35,40 @@ export default function Trainings() {
           <p>Ateliers techniques proposés par le club ENISO Team.</p>
         </header>
 
-        {!isMember && (
-          <div className={`alert alert-success ${styles.notice}`}>
-            Les formations sont visibles par tous.{' '}
-            <Link to="/login" state={{ from: '/trainings', message: 'Connectez-vous pour accéder aux ressources des formations.' }}>
-              Connectez-vous
-            </Link>{' '}
-            avec votre compte membre pour y accéder.
-          </div>
-        )}
-
         {error && <div className="alert alert-error">{error}</div>}
 
         <div className="grid grid-2">
           {items.map((t) => (
-            <article key={t.id} className="card">
+            <article key={t.id} className={`card ${styles.card}`}>
               <div className="meta">
                 <span className="badge badge-accent">{niveauLabel[t.niveau] || t.niveau}</span>
                 <span>{new Date(t.date).toLocaleDateString('fr-FR')}</span>
               </div>
               <h3>{t.titre}</h3>
               <p>{t.description}</p>
-              {t.formateur && <p className={styles.formateur}>Formateur : {t.formateur}</p>}
+              {t.formateur && <p className={styles.metaLine}>Formateur : {t.formateur}</p>}
 
-              {isMember && t.lien ? (
-                <a href={t.lien} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm">
-                  Accéder à la formation
-                </a>
-              ) : !isMember && (t.acces_membre || t.lien) ? (
-                <div className={styles.locked}>
-                  <span className="badge badge-muted">🔒 Réservé aux membres</span>
+              <div className={styles.actions}>
+                {t.inscription_ouverte ? (
                   <Link
-                    to="/login"
-                    state={{ from: '/trainings', message: 'Connectez-vous pour accéder à cette formation.' }}
-                    className="btn btn-secondary btn-sm"
+                    to={`/trainings/${t.id}/inscription`}
+                    className={`btn btn-primary ${styles.joinBtn}`}
                   >
-                    Se connecter
+                    <span className={styles.joinIcon} aria-hidden>
+                      ✎
+                    </span>
+                    Register
                   </Link>
-                </div>
-              ) : null}
+                ) : (
+                  <span className={styles.closed}>Registration closed</span>
+                )}
+
+                {isMember && t.lien ? (
+                  <a href={t.lien} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+                    Accéder à la formation
+                  </a>
+                ) : null}
+              </div>
             </article>
           ))}
         </div>

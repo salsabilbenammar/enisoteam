@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -47,6 +47,7 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/site-settings', siteSettingsRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/rh', require('./routes/rhRoutes'));
+app.use('/api/recruitment', require('./routes/recruitmentRoutes'));
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Route introuvable.' });
@@ -56,4 +57,5 @@ app.use(errorMiddleware);
 
 app.listen(PORT, () => {
   console.log(`ENISO Team API démarrée sur http://localhost:${PORT}`);
+  require('./services/recruitmentCron').startRecruitmentCron();
 });

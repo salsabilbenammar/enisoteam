@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
+import styles from './ActivityCards.module.css';
 
 export default function Events() {
   const [items, setItems] = useState([]);
@@ -27,19 +29,9 @@ export default function Events() {
         {error && <div className="alert alert-error">{error}</div>}
         <div className="grid grid-2">
           {items.map((e) => (
-            <article key={e.id} className="card">
+            <article key={e.id} className={`card ${styles.card}`}>
               {e.image && (
-                <img
-                  src={assetUrl(e.image)}
-                  alt={e.titre}
-                  style={{
-                    width: '100%',
-                    height: 180,
-                    objectFit: 'cover',
-                    borderRadius: 10,
-                    marginBottom: '1rem',
-                  }}
-                />
+                <img src={assetUrl(e.image)} alt={e.titre} className={styles.cover} />
               )}
               <div className="meta">
                 <span className={`badge ${e.statut === 'a_venir' ? 'badge-accent' : 'badge-muted'}`}>
@@ -49,7 +41,20 @@ export default function Events() {
               </div>
               <h3>{e.titre}</h3>
               <p>{e.description}</p>
-              {e.lieu && <p style={{ color: 'var(--text)' }}>📍 {e.lieu}</p>}
+              {e.lieu && <p className={styles.metaLine}>📍 {e.lieu}</p>}
+
+              <div className={styles.actions}>
+                {e.inscription_ouverte ? (
+                  <Link to={`/events/${e.id}/inscription`} className={`btn btn-primary ${styles.joinBtn}`}>
+                    <span className={styles.joinIcon} aria-hidden>
+                      ✎
+                    </span>
+                    Register
+                  </Link>
+                ) : (
+                  <span className={styles.closed}>Registration closed</span>
+                )}
+              </div>
             </article>
           ))}
         </div>

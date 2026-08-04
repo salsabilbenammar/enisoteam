@@ -14,14 +14,16 @@ export default function Dashboard() {
       api.get('/trainings'),
       api.get('/events'),
       api.get('/gallery'),
+      api.get('/recruitment/candidates', { params: { limit: 1 } }),
     ])
-      .then(([a, b, t, e, g]) => {
+      .then(([a, b, t, e, g, r]) => {
         setStats({
           announcements: a.data.length,
           board: b.data.length,
           trainings: t.data.length,
           events: e.data.length,
           gallery: g.data.length,
+          candidates: r.data.total,
         });
       })
       .catch(() => setError('Impossible de charger le tableau de bord.'));
@@ -35,6 +37,7 @@ export default function Dashboard() {
     { label: 'Médias accueil', value: stats?.gallery, to: '/admin/gallery' },
     { label: 'Formations', value: stats?.trainings, to: '/admin/trainings' },
     { label: 'Événements', value: stats?.events, to: '/admin/events' },
+    { label: 'Candidats', value: stats?.candidates, to: '/admin/recruitment' },
     { label: 'Coin RH', value: '→', to: '/admin/rh' },
   ];
 

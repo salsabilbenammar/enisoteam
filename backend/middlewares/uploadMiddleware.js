@@ -3,7 +3,7 @@ const fs = require('fs');
 const multer = require('multer');
 
 const uploadsRoot = path.join(__dirname, '..', 'uploads');
-const dirs = ['images', 'cv', 'board', 'events', 'announcements', 'club', 'gallery'];
+const dirs = ['images', 'cv', 'board', 'events', 'announcements', 'club', 'gallery', 'recruitment'];
 
 dirs.forEach((dir) => {
   const full = path.join(uploadsRoot, dir);
@@ -73,4 +73,25 @@ const uploadCv = multer({
   fileFilter: cvFilter,
 });
 
-module.exports = { uploadImage, uploadMedia, uploadCv, uploadsRoot };
+function recruitmentFilter(_req, file, cb) {
+  if (file.fieldname === 'photo') {
+    if (imageMime.has(file.mimetype)) return cb(null, true);
+    return cb(new Error('Photo : images uniquement (jpg, png, webp, gif).'));
+  }
+  if (file.fieldname === 'piece_jointe') {
+    if (cvMime.has(file.mimetype) || imageMime.has(file.mimetype)) return cb(null, true);
+    return cb(new Error('Pièce jointe : PDF, Word ou image uniquement.'));
+  }
+  cb(new Error('Champ fichier non autorisé.'));
+}
+
+const uploadRecruitment = multer({
+  storage: makeStorage('recruitment'),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: recruitmentFilter,
+}).fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'piece_jointe', maxCount: 1 },
+]);
+
+module.exports = { uploadImage, uploadMedia, uploadCv, uploadRecruitment, uploadsRoot };

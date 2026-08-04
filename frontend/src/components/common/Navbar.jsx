@@ -1,9 +1,10 @@
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import styles from './Navbar.module.css';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 
-const links = [
+const BASE_LINKS = [
   { to: '/', label: 'Accueil' },
   { to: '/about', label: 'À propos' },
   { to: '/board', label: 'Bureau' },
@@ -15,8 +16,22 @@ const links = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [candidatureOpen, setCandidatureOpen] = useState(false);
   const { isAdmin, isMember, user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api
+      .get('/recruitment/status')
+      .then((res) => setCandidatureOpen(!!res.data.candidature_ouverte))
+      .catch(() => setCandidatureOpen(false));
+  }, []);
+
+  const links = [
+    ...BASE_LINKS.slice(0, 6),
+    ...(candidatureOpen ? [{ to: '/candidature', label: 'Candidature' }] : []),
+    BASE_LINKS[6],
+  ];
 
   const handleLogout = () => {
     logout();

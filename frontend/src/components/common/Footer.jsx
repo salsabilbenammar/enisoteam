@@ -11,7 +11,7 @@ const DEFAULTS = {
   linkedin_url: 'https://www.linkedin.com/company/enisoteam/',
 };
 
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { to: '/about', label: 'À propos' },
   { to: '/board', label: 'Bureau' },
   { to: '/trainings', label: 'Formations' },
@@ -39,13 +39,23 @@ const ICONS = {
 
 export default function Footer() {
   const [settings, setSettings] = useState(DEFAULTS);
+  const [candidatureOpen, setCandidatureOpen] = useState(false);
 
   useEffect(() => {
     api
       .get('/site-settings')
       .then((res) => setSettings({ ...DEFAULTS, ...res.data }))
       .catch(() => setSettings(DEFAULTS));
+    api
+      .get('/recruitment/status')
+      .then((res) => setCandidatureOpen(!!res.data.candidature_ouverte))
+      .catch(() => setCandidatureOpen(false));
   }, []);
+
+  const navLinks = [
+    ...BASE_NAV_LINKS,
+    ...(candidatureOpen ? [{ to: '/candidature', label: 'Candidature' }] : []),
+  ];
 
   const socialLinks = [
     { label: 'Instagram', href: settings.instagram_url },
@@ -75,7 +85,7 @@ export default function Footer() {
           <div className={styles.col}>
             <h3 className={styles.heading}>Navigation</h3>
             <nav className={styles.navList} aria-label="Liens du pied de page">
-              {NAV_LINKS.map((link) => (
+              {navLinks.map((link) => (
                 <Link key={link.to} to={link.to}>
                   {link.label}
                 </Link>

@@ -132,14 +132,17 @@ CREATE TABLE `gallery` (
 -- Formations proposées par le club
 -- ------------------------------------------------------------
 CREATE TABLE `trainings` (
-  `id`          INT UNSIGNED                              NOT NULL AUTO_INCREMENT,
-  `titre`       VARCHAR(200)                              NOT NULL,
-  `description` TEXT                                      NOT NULL,
-  `date`        DATE                                      NOT NULL,
-  `formateur`   VARCHAR(100)                              DEFAULT NULL,
-  `niveau`      ENUM('debutant', 'intermediaire', 'avance') NOT NULL DEFAULT 'debutant',
-  `lien`        VARCHAR(500)                              DEFAULT NULL,
-  `created_at`  TIMESTAMP                                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `id`                   INT UNSIGNED                              NOT NULL AUTO_INCREMENT,
+  `titre`                VARCHAR(200)                              NOT NULL,
+  `description`          TEXT                                      NOT NULL,
+  `date`                 DATE                                      NOT NULL,
+  `formateur`            VARCHAR(100)                              DEFAULT NULL,
+  `niveau`               ENUM('debutant', 'intermediaire', 'avance') NOT NULL DEFAULT 'debutant',
+  `lien`                 VARCHAR(500)                              DEFAULT NULL,
+  `inscription_ouverte`  TINYINT(1)                                NOT NULL DEFAULT 0,
+  `payante`              TINYINT(1)                                NOT NULL DEFAULT 0,
+  `prix`                 VARCHAR(50)                               DEFAULT NULL,
+  `created_at`           TIMESTAMP                                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_trainings_date` (`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
