@@ -44,6 +44,9 @@ const MAIL_SUCCESS_PLACEHOLDERS = [
 
 const MAIL_PAYMENT_PLACEHOLDERS = [
   { key: 'Nom', hint: 'Prénom + nom' },
+  { key: 'Email', hint: 'Email du compte membre' },
+  { key: 'Password', hint: 'Mot de passe temporaire généré' },
+  { key: 'LienConnexion', hint: 'Lien vers la page de connexion membre (/login)' },
   { key: 'Messenger', hint: 'Lien d’invitation Messenger' },
   { key: 'Facebook', hint: 'Lien page / groupe Facebook' },
 ];
@@ -451,16 +454,31 @@ export default function ManageRecruitment() {
     Infos: settings?.infos_paiement || '',
     Messenger: settings?.lien_messenger || 'https://m.me/j/…',
     Facebook: settings?.lien_facebook || 'https://facebook.com/…',
+    Email: 'candidat@exemple.com',
+    Password: 'Ab3xY9kLm2',
+    LienConnexion: 'http://localhost:5173/login',
   };
 
   return (
     <div>
-      <header className="page-header">
-        <h1>Recrutement</h1>
-        <p>
-          Pipeline candidature → entretien → présence → paiement.{' '}
-          <strong>{stats.total}</strong> candidat{stats.total > 1 ? 's' : ''} au total.
-        </p>
+      <header className="page-header" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <h1>Recrutement</h1>
+          <p>
+            Pipeline candidature → entretien → présence → paiement.{' '}
+            <strong>{stats.total}</strong> candidat{stats.total > 1 ? 's' : ''} au total.
+          </p>
+        </div>
+        {settings?.google_sheets_url ? (
+          <a
+            href={settings.google_sheets_url}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-primary"
+          >
+            Voir Google Sheet
+          </a>
+        ) : null}
       </header>
 
       <div className={styles.pipeline}>
@@ -1146,6 +1164,23 @@ export default function ManageRecruitment() {
                   ajoutées automatiquement au spreadsheet (si{' '}
                   <code>GOOGLE_SHEETS_*</code> est configuré dans le <code>.env</code> backend).
                 </p>
+                {settings.google_sheets_url ? (
+                  <a
+                    href={settings.google_sheets_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: '0.75rem' }}
+                  >
+                    Voir Google Sheet
+                  </a>
+                ) : (
+                  <p className={styles.meta}>
+                    Configurez <code>GOOGLE_SHEETS_SPREADSHEET_ID</code> (ou{' '}
+                    <code>GOOGLE_SHEETS_URL</code>) dans le <code>.env</code> pour activer le
+                    bouton.
+                  </p>
+                )}
               </div>
             </>
           )}
@@ -1184,7 +1219,7 @@ export default function ManageRecruitment() {
               />
 
               <MailTemplateEditor
-                title="3 — Paiement confirmé + Messenger / Facebook"
+                title="3 — Paiement confirmé + accès membre"
                 description="Envoyé au clic « Valider paiement ». Utilise les liens de l’onglet Général."
                 placeholders={MAIL_PAYMENT_PLACEHOLDERS}
                 sampleVars={mailSampleVars}

@@ -152,29 +152,61 @@ Merci.
   };
 }
 
-function buildPaymentConfirmedEmail(candidate, settings = {}) {
+function buildPaymentConfirmedEmail(candidate, settings = {}, credentials = {}) {
   const nom = `${candidate.prenom} ${candidate.nom}`.trim();
+  const frontend = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  // Toujours la page de connexion membre (jamais /admin)
+  const loginUrl = `${frontend}/login`;
+  const email = credentials.email || candidate.email || '';
+  const password = credentials.temporaryPassword || '';
   const vars = {
     Nom: nom,
+    Email: email,
+    Password: password || '—',
+    LienConnexion: loginUrl,
     Messenger: settings.lien_messenger || '—',
     Facebook: settings.lien_facebook || '—',
   };
-  const subject = settings.mail_paiement_sujet || 'Paiement confirmé';
-  const bodyTemplate =
-    settings.mail_paiement_corps ||
-    `Bonjour [Nom],
+  const defaultSubject = 'Paiement confirmé — vos identifiants membre ENISO Team';
+  const defaultBody = `Bonjour [Nom],
 
 Nous confirmons la réception de votre paiement. Bienvenue dans l'ENISO Team !
 
-Rejoignez dès maintenant nos espaces communautaires :
+Votre compte membre a été créé. Voici vos identifiants de connexion :
 
+Email : [Email]
+Mot de passe (généré automatiquement) : [Password]
+Lien de connexion : [LienConnexion]
+
+Pour votre sécurité, changez ce mot de passe dès votre première connexion (menu Profil).
+
+Rejoignez aussi nos espaces communautaires :
 Messenger : [Messenger]
 Facebook : [Facebook]
 
 À très bientôt,
 
 — ENISO Team`;
-  const text = applyMailPlaceholders(bodyTemplate, vars);
+
+  let bodyTemplate = settings.mail_paiement_corps || defaultBody;
+  if (!String(bodyTemplate).includes('[Password]') || !String(bodyTemplate).includes('[Email]')) {
+    bodyTemplate = defaultBody;
+  }
+
+  const subject = settings.mail_paiement_sujet || defaultSubject;
+  let text = applyMailPlaceholders(bodyTemplate, vars);
+
+  // Garantit la présence des identifiants même si le modèle admin est incomplet
+  if (password && !text.includes(password)) {
+    text += `
+
+--- Accès membre ---
+Email : ${email}
+Mot de passe (généré automatiquement) : ${password}
+Lien de connexion : ${loginUrl}
+`;
+  }
+
   return {
     subject: applyMailPlaceholders(subject, vars),
     text,

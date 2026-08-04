@@ -107,4 +107,76 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { login, me };
+async function updateMyProfile(req, res, next) {
+  try {
+    if (!req.user || req.user.role !== 'member') {
+      return res.status(403).json({ message: 'Réservé aux comptes membres.' });
+    }
+    const { nom, filiere } = req.body;
+    if (!nom || !String(nom).trim()) {
+      return res.status(400).json({ message: 'Le nom est requis.' });
+    }
+    const member = await memberModel.findById(req.user.id);
+    if (!member) return res.status(404).json({ message: 'Membre introuvable.' });
+
+    const updated = await memberModel.update(member.id, {
+      nom: String(nom).trim(),
+      email: member.email,
+      filiere: filiere !== undefined ? filiere : member.filiere,
+      actif: member.actif,
+    });
+
+    const user = {
+      id: updated.id,
+      nom: updated.nom,
+      email: updated.email,
+      role: 'member',
+      filiere: updated.filiere || null,
+    };
+    const token = signToken(tokenPayload(user));
+    res.json({ ...user, token, message: 'Profil mis à jour.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function changeMyPassword(req, res, next) {
+  try {
+    if (!req.user || req.user.role !== 'member') {
+      return res.status(403).json({ message: 'Réservé aux comptes membres.' });
+    }
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Mot de passe actuel et nouveau requis.' });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ message: 'Nouveau mot de passe : 6 caractères minimum.' });
+    }
+
+    const member = await memberModel.findByEmail(req.user.email);
+    if (!member) return res.status(404).json({ message: 'Membre introuvable.' });
+    if (!member.actif) {
+      return res.status(403).json({ message: 'Compte membre désactivé.' });
+    }
+
+    const valid = await bcrypt.compare(currentPassword, member.password_hash);
+    if (!valid) {
+      return res.status(401).json({ message: 'Mot de passe actuel incorrect.' });
+    }
+
+    const password_hash = await bcrypt.hash(String(newPassword), 10);
+    await memberModel.update(member.id, {
+      nom: member.nom,
+      email: member.email,
+      filiere: member.filiere,
+      actif: true,
+      password_hash,
+    });
+
+    res.json({ message: 'Mot de passe mis à jour.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, me, updateMyProfile, changeMyPassword };

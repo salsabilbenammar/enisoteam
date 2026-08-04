@@ -13,6 +13,7 @@ const {
   buildPaymentConfirmedEmail,
 } = require('../services/recruitmentMailTemplates');
 const googleSheets = require('../services/googleSheetsService');
+const { provisionMemberFromCandidate } = require('../services/memberProvisionService');
 
 function parseIds(body) {
   const raw = body.ids || body.candidate_ids || [];
@@ -264,9 +265,28 @@ async function bulkStatus(req, res, next) {
 
 async function removeCandidate(req, res, next) {
   try {
-    const ok = await candidateModel.remove(req.params.id);
+    const candidate = await candidateModel.findById(req.params.id);
+    if (!candidate) return res.status(404).json({ message: 'Candidat introuvable.' });
+
+    const sheetResult = await googleSheets.deletePaidCandidate(candidate.id);
+    const ok = await candidateModel.remove(candidate.id);
     if (!ok) return res.status(404).json({ message: 'Candidat introuvable.' });
-    res.json({ message: 'Candidat supprimé.' });
+
+    let message = 'Candidat supprimé.';
+    if (sheetResult.skipped) {
+      message += ' (Google Sheet non configuré)';
+    } else if (sheetResult.error) {
+      message += ` Attention : retrait Google Sheet échoué (${sheetResult.error}).`;
+    } else if (sheetResult.deleted > 0) {
+      message += ` Retiré aussi du Google Sheet (${sheetResult.deleted} ligne(s)).`;
+    } else {
+      message += ' Aucune ligne correspondante dans le Google Sheet.';
+    }
+
+    res.json({
+      message,
+      sheet: sheetResult,
+    });
   } catch (err) {
     next(err);
   }
@@ -468,10 +488,24 @@ async function confirmPayments(req, res, next) {
     const settings = await settingsModel.get();
     let sheetsOk = 0;
     let sheetsFail = 0;
+    let membersCreated = 0;
 
     for (const id of eligible) {
       const candidate = await candidateModel.findById(id);
-      const mail = buildPaymentConfirmedEmail(candidate, settings);
+
+      let credentials = { email: candidate.email, temporaryPassword: null };
+      try {
+        const provisioned = await provisionMemberFromCandidate(candidate);
+        credentials = {
+          email: provisioned.email,
+          temporaryPassword: provisioned.temporaryPassword,
+        };
+        if (provisioned.created) membersCreated += 1;
+      } catch (provisionErr) {
+        console.error('[recruitment] Création compte membre impossible:', provisionErr.message);
+      }
+
+      const mail = buildPaymentConfirmedEmail(candidate, settings, credentials);
       await emailQueueModel.sendImmediate({
         candidate_id: candidate.id,
         email_to: candidate.email,
@@ -492,7 +526,7 @@ async function confirmPayments(req, res, next) {
       }
     }
 
-    let message = 'Paiements confirmés et emails programmés.';
+    let message = `Paiements confirmés. ${membersCreated} compte(s) membre créé(s). Emails envoyés.`;
     if (googleSheets.isConfigured()) {
       message += ` Google Sheet : ${sheetsOk} exporté(s)`;
       if (sheetsFail) message += `, ${sheetsFail} échec(s)`;
@@ -501,7 +535,13 @@ async function confirmPayments(req, res, next) {
       message += ' (Google Sheet non configuré)';
     }
 
-    res.json({ message, count: eligible.length, sheetsOk, sheetsFail });
+    res.json({
+      message,
+      count: eligible.length,
+      membersCreated,
+      sheetsOk,
+      sheetsFail,
+    });
   } catch (err) {
     next(err);
   }
@@ -574,7 +614,12 @@ async function schedule(_req, res, next) {
 
 async function getSettings(_req, res, next) {
   try {
-    res.json(await settingsModel.get());
+    const settings = await settingsModel.get();
+    res.json({
+      ...settings,
+      google_sheets_url: googleSheets.getSpreadsheetUrl(),
+      google_sheets_configured: googleSheets.isConfigured(),
+    });
   } catch (err) {
     next(err);
   }
@@ -582,7 +627,12 @@ async function getSettings(_req, res, next) {
 
 async function updateSettings(req, res, next) {
   try {
-    res.json(await settingsModel.update(req.body));
+    const settings = await settingsModel.update(req.body);
+    res.json({
+      ...settings,
+      google_sheets_url: googleSheets.getSpreadsheetUrl(),
+      google_sheets_configured: googleSheets.isConfigured(),
+    });
   } catch (err) {
     next(err);
   }

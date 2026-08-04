@@ -124,6 +124,7 @@ async function appendViaWebhook(candidate) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       secret,
+      action: 'append',
       row: candidateToRow(candidate),
     }),
     redirect: 'follow',
@@ -141,6 +142,36 @@ async function appendViaWebhook(candidate) {
   return { synced: true, via: 'webhook' };
 }
 
+async function deleteViaWebhook(candidateId) {
+  const url = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
+  const secret = process.env.GOOGLE_SHEETS_WEBHOOK_SECRET || '';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      secret,
+      action: 'delete',
+      candidateId: String(candidateId),
+    }),
+    redirect: 'follow',
+  });
+  const text = await res.text();
+  let data = {};
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = { raw: text };
+  }
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || `Webhook HTTP ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return {
+    synced: true,
+    via: 'webhook',
+    deleted: Number(data.deleted || 0),
+  };
+}
+
 async function appendViaServiceAccount(candidate) {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
   const range = process.env.GOOGLE_SHEETS_RANGE || 'Candidats!A:L';
@@ -154,6 +185,60 @@ async function appendViaServiceAccount(candidate) {
     requestBody: { values: [candidateToRow(candidate)] },
   });
   return { synced: true, via: 'service_account' };
+}
+
+function sheetNameFromRange(range) {
+  return String(range).split('!')[0] || 'Candidats';
+}
+
+async function deleteViaServiceAccount(candidateId) {
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+  const range = process.env.GOOGLE_SHEETS_RANGE || 'Candidats!A:L';
+  const sheetName = sheetNameFromRange(range);
+  const sheets = await getSheetsClient();
+  const idStr = String(candidateId);
+
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A:L`,
+  });
+  const rows = existing.data.values || [];
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet = (meta.data.sheets || []).find(
+    (s) => s.properties?.title === sheetName
+  );
+  if (!sheet) {
+    return { synced: true, via: 'service_account', deleted: 0, reason: 'sheet_missing' };
+  }
+  const sheetId = sheet.properties.sheetId;
+
+  // Column L = index 11 (ID candidat)
+  const deleteRequests = [];
+  for (let i = rows.length - 1; i >= 1; i -= 1) {
+    const row = rows[i] || [];
+    if (String(row[11] || '') === idStr) {
+      deleteRequests.push({
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: i,
+            endIndex: i + 1,
+          },
+        },
+      });
+    }
+  }
+
+  if (!deleteRequests.length) {
+    return { synced: true, via: 'service_account', deleted: 0 };
+  }
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests: deleteRequests },
+  });
+  return { synced: true, via: 'service_account', deleted: deleteRequests.length };
 }
 
 /**
@@ -180,9 +265,47 @@ async function appendPaidCandidate(candidate) {
   }
 }
 
+/**
+ * Supprime les lignes du candidat dans le Google Sheet (colonne ID candidat).
+ */
+async function deletePaidCandidate(candidateId) {
+  if (!isConfigured()) {
+    return { synced: false, skipped: true, reason: 'not_configured' };
+  }
+
+  try {
+    if (process.env.GOOGLE_SHEETS_WEBHOOK_URL) {
+      const result = await deleteViaWebhook(candidateId);
+      console.log(
+        `[sheets] Candidat #${candidateId} retiré du sheet (${result.deleted} ligne(s))`
+      );
+      return result;
+    }
+    const result = await deleteViaServiceAccount(candidateId);
+    console.log(
+      `[sheets] Candidat #${candidateId} retiré du sheet (${result.deleted} ligne(s))`
+    );
+    return result;
+  } catch (err) {
+    console.error('[sheets] Erreur suppression:', err.message);
+    return { synced: false, error: err.message };
+  }
+}
+
+function getSpreadsheetUrl() {
+  if (process.env.GOOGLE_SHEETS_URL) {
+    return String(process.env.GOOGLE_SHEETS_URL).trim();
+  }
+  const id = String(process.env.GOOGLE_SHEETS_SPREADSHEET_ID || '').trim();
+  if (!id) return null;
+  return `https://docs.google.com/spreadsheets/d/${id}/edit`;
+}
+
 module.exports = {
   isConfigured,
   appendPaidCandidate,
+  deletePaidCandidate,
   candidateToRow,
+  getSpreadsheetUrl,
   HEADERS,
 };

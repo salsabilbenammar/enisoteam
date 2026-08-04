@@ -50,23 +50,51 @@ export default function Trainings() {
 
               <div className={styles.actions}>
                 {t.inscription_ouverte ? (
-                  <Link
-                    to={`/trainings/${t.id}/inscription`}
-                    className={`btn btn-primary ${styles.joinBtn}`}
-                  >
-                    <span className={styles.joinIcon} aria-hidden>
-                      ✎
-                    </span>
-                    Register
-                  </Link>
+                  isMember ? (
+                    <Link
+                      to={`/trainings/${t.id}/inscription`}
+                      className={`btn btn-primary ${styles.joinBtn}`}
+                    >
+                      <span className={styles.joinIcon} aria-hidden>
+                        ✎
+                      </span>
+                      S&apos;inscrire
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/login"
+                      state={{
+                        from: `/trainings/${t.id}/inscription`,
+                        message:
+                          'Connectez-vous avec votre compte membre pour vous inscrire à une formation.',
+                      }}
+                      className={`btn btn-primary ${styles.joinBtn}`}
+                    >
+                      <span className={styles.joinIcon} aria-hidden>
+                        ✎
+                      </span>
+                      Se connecter pour s&apos;inscrire
+                    </Link>
+                  )
                 ) : (
-                  <span className={styles.closed}>Registration closed</span>
+                  <span className={styles.closed}>Inscriptions fermées</span>
                 )}
 
                 {isMember && t.lien ? (
                   <a href={t.lien} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
                     Accéder à la formation
                   </a>
+                ) : !isMember && t.acces_membre ? (
+                  <Link
+                    to="/login"
+                    state={{
+                      from: '/trainings',
+                      message: 'Connectez-vous pour accéder au contenu réservé aux membres.',
+                    }}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    Contenu membre 🔒
+                  </Link>
                 ) : null}
               </div>
             </article>

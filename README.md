@@ -35,8 +35,14 @@ C:\xampp\mysql\bin\mysql.exe -u root < "database\eniso_team.sql"
 | Email membre (test) | `membre@eniso-team.tn` |
 | Mot de passe membre | `membre123` |
 
+| Page | URL |
+|------|-----|
+| Connexion membre | `/login` |
+| Connexion admin | `/admin/login` |
+
 > **Formations** et **Coin RH** sont réservés aux membres inscrits (et aux admins).
 > Les comptes membres se gèrent dans **Admin → Membres**.
+> Un membre n’a jamais accès à `/admin`.
 
 ## 2. Backend
 

@@ -1,18 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import styles from './Login.module.css';
+import styles from '../public/Login.module.css';
 
-function safePublicRedirect(from) {
-  if (!from || typeof from !== 'string') return '/';
-  if (!from.startsWith('/') || from.startsWith('//')) return '/';
-  if (from.startsWith('/admin')) return '/';
-  if (from === '/login') return '/';
-  return from;
-}
-
-export default function Login() {
-  const { login, logout, isAuthenticated, isAdmin, isClubMemberOnly, loading } = useAuth();
+export default function AdminLogin() {
+  const { login, logout, isAuthenticated, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -20,8 +12,10 @@ export default function Login() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const infoMessage = location.state?.message || '';
-  const from = safePublicRedirect(location.state?.from);
+  const from =
+    location.state?.from?.startsWith('/admin') && location.state.from !== '/admin/login'
+      ? location.state.from
+      : '/admin';
 
   useEffect(() => {
     setEmail('');
@@ -29,8 +23,14 @@ export default function Login() {
   }, []);
 
   if (!loading && isAuthenticated) {
-    if (isAdmin) return <Navigate to="/admin" replace />;
-    if (isClubMemberOnly) return <Navigate to={from} replace />;
+    if (isAdmin) return <Navigate to={from} replace />;
+    return (
+      <Navigate
+        to="/"
+        replace
+        state={{ message: 'Accès réservé aux administrateurs.' }}
+      />
+    );
   }
 
   const onSubmit = async (e) => {
@@ -43,17 +43,12 @@ export default function Login() {
     setSubmitting(true);
     try {
       const data = await login(email.trim(), password);
-      if (data.user.role === 'admin') {
+      if (data.user.role !== 'admin') {
         logout();
-        setError('Compte administrateur détecté. Utilisez la page de connexion admin.');
+        setError('Compte membre détecté. Utilisez la page de connexion membre.');
         return;
       }
-      if (data.user.role !== 'member') {
-        logout();
-        setError('Identifiants incorrects.');
-        return;
-      }
-      navigate(from);
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Connexion impossible.');
     } finally {
@@ -66,33 +61,17 @@ export default function Login() {
       <div className="container" style={{ maxWidth: 440 }}>
         <div className={styles.header}>
           <img src="/logo.png" alt="ENISO Team" className={styles.logo} />
-          <h1>Connexion membre</h1>
-          <p>
-            Connectez-vous avec le compte reçu après confirmation de votre paiement. Le site reste
-            le même — formations, Coin RH et profil deviennent disponibles.
-          </p>
+          <h1>Administration</h1>
+          <p>Connexion réservée aux administrateurs du club.</p>
         </div>
         <div className="card">
-          {infoMessage && <div className="alert alert-success">{infoMessage}</div>}
-          {error && (
-            <div className="alert alert-error">
-              {error}
-              {error.includes('administrateur') && (
-                <>
-                  {' '}
-                  <Link to="/admin/login" style={{ color: 'inherit', textDecoration: 'underline' }}>
-                    Connexion admin
-                  </Link>
-                </>
-              )}
-            </div>
-          )}
+          {error && <div className="alert alert-error">{error}</div>}
           <form className="form" onSubmit={onSubmit} autoComplete="off">
             <div className="form-group">
-              <label htmlFor="login-email">Email</label>
+              <label htmlFor="admin-login-email">Email</label>
               <input
-                id="login-email"
-                name="login-email"
+                id="admin-login-email"
+                name="admin-login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -103,10 +82,10 @@ export default function Login() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="login-password">Mot de passe</label>
+              <label htmlFor="admin-login-password">Mot de passe</label>
               <input
-                id="login-password"
-                name="login-password"
+                id="admin-login-password"
+                name="admin-login-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -120,6 +99,12 @@ export default function Login() {
               {submitting ? 'Connexion…' : 'Se connecter'}
             </button>
           </form>
+          <p style={{ marginTop: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            Vous êtes membre ?{' '}
+            <Link to="/login" style={{ color: 'var(--accent)' }}>
+              Connexion membre
+            </Link>
+          </p>
         </div>
       </div>
     </div>

@@ -35,8 +35,15 @@ const DEFAULT_MAIL_PAIEMENT_CORPS = `Bonjour [Nom],
 
 Nous confirmons la réception de votre paiement. Bienvenue dans l'ENISO Team !
 
-Rejoignez dès maintenant nos espaces communautaires :
+Votre compte membre a été créé. Voici vos identifiants de connexion :
 
+Email : [Email]
+Mot de passe (généré automatiquement) : [Password]
+Lien de connexion : [LienConnexion]
+
+Pour votre sécurité, changez ce mot de passe dès votre première connexion (menu Profil).
+
+Rejoignez aussi nos espaces communautaires :
 Messenger : [Messenger]
 Facebook : [Facebook]
 
@@ -62,11 +69,17 @@ const DEFAULTS = {
   mail_confirmation_corps: DEFAULT_MAIL_CONFIRMATION_CORPS,
   mail_reussite_sujet: 'Félicitations — entretien réussi',
   mail_reussite_corps: DEFAULT_MAIL_REUSSITE_CORPS,
-  mail_paiement_sujet: 'Paiement confirmé',
+  mail_paiement_sujet: 'Paiement confirmé — vos identifiants membre ENISO Team',
   mail_paiement_corps: DEFAULT_MAIL_PAIEMENT_CORPS,
 };
 
 function normalize(row) {
+  const mailPaiementCorps = row?.mail_paiement_corps || DEFAULTS.mail_paiement_corps;
+  // Ancien modèle sans identifiants → bascule sur le modèle avec Email / Password / LienConnexion
+  const paiementHasCreds =
+    String(mailPaiementCorps).includes('[Password]') &&
+    String(mailPaiementCorps).includes('[Email]');
+
   return {
     ...DEFAULTS,
     ...row,
@@ -79,8 +92,10 @@ function normalize(row) {
       row?.mail_confirmation_corps || DEFAULTS.mail_confirmation_corps,
     mail_reussite_sujet: row?.mail_reussite_sujet || DEFAULTS.mail_reussite_sujet,
     mail_reussite_corps: row?.mail_reussite_corps || DEFAULTS.mail_reussite_corps,
-    mail_paiement_sujet: row?.mail_paiement_sujet || DEFAULTS.mail_paiement_sujet,
-    mail_paiement_corps: row?.mail_paiement_corps || DEFAULTS.mail_paiement_corps,
+    mail_paiement_sujet: paiementHasCreds
+      ? row?.mail_paiement_sujet || DEFAULTS.mail_paiement_sujet
+      : DEFAULTS.mail_paiement_sujet,
+    mail_paiement_corps: paiementHasCreds ? mailPaiementCorps : DEFAULTS.mail_paiement_corps,
   };
 }
 
@@ -89,7 +104,27 @@ async function get() {
     const [rows] = await pool.execute(
       `SELECT * FROM recruitment_settings WHERE id = 1 LIMIT 1`
     );
-    if (rows[0]) return normalize(rows[0]);
+    if (rows[0]) {
+      const rawCorps = rows[0].mail_paiement_corps || '';
+      const outdated =
+        !String(rawCorps).includes('[Password]') || !String(rawCorps).includes('[Email]');
+      if (outdated) {
+        // Mise à jour SQL directe (sans appeler update() → évite récursion get↔update)
+        try {
+          await pool.execute(
+            `UPDATE recruitment_settings
+             SET mail_paiement_sujet = ?, mail_paiement_corps = ?
+             WHERE id = 1`,
+            [DEFAULTS.mail_paiement_sujet, DEFAULTS.mail_paiement_corps]
+          );
+          rows[0].mail_paiement_sujet = DEFAULTS.mail_paiement_sujet;
+          rows[0].mail_paiement_corps = DEFAULTS.mail_paiement_corps;
+        } catch {
+          // ignore si colonnes absentes
+        }
+      }
+      return normalize(rows[0]);
+    }
   } catch (err) {
     if (err.code !== 'ER_NO_SUCH_TABLE' && err.code !== 'ER_BAD_FIELD_ERROR') throw err;
   }

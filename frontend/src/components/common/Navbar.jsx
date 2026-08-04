@@ -80,9 +80,18 @@ export default function Navbar() {
               Admin
             </Link>
           ) : isMember ? (
-            <button type="button" className={styles.ctaBtn} onClick={handleLogout}>
-              {user?.nom?.split(' ')[0] || 'Membre'} · Déconnexion
-            </button>
+            <>
+              <NavLink
+                to="/profil"
+                className={({ isActive }) => (isActive ? styles.active : undefined)}
+                onClick={() => setOpen(false)}
+              >
+                Profil
+              </NavLink>
+              <button type="button" className={styles.ctaBtn} onClick={handleLogout}>
+                {user?.nom?.split(' ')[0] || 'Membre'} · Déconnexion
+              </button>
+            </>
           ) : (
             <Link to="/login" className={styles.cta} onClick={() => setOpen(false)}>
               Connexion

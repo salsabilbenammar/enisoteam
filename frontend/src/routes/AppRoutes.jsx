@@ -15,7 +15,9 @@ import Candidature from '../pages/public/Candidature';
 import BookInterview from '../pages/public/BookInterview';
 import ActivityInscription from '../pages/public/ActivityInscription';
 import Login from '../pages/public/Login';
+import MemberProfile from '../pages/public/MemberProfile';
 
+import AdminLogin from '../pages/admin/AdminLogin';
 import Dashboard from '../pages/admin/Dashboard';
 import ManageAnnouncements from '../pages/admin/ManageAnnouncements';
 import ManageBoard from '../pages/admin/ManageBoard';
@@ -35,7 +37,6 @@ export default function AppRoutes() {
         <Route path="about" element={<About />} />
         <Route path="board" element={<Board />} />
         <Route path="trainings" element={<Trainings />} />
-        <Route path="trainings/:id/inscription" element={<ActivityInscription type="trainings" />} />
         <Route path="events" element={<Events />} />
         <Route path="events/:id/inscription" element={<ActivityInscription type="events" />} />
         <Route path="announcements" element={<Announcements />} />
@@ -45,8 +46,12 @@ export default function AppRoutes() {
 
         <Route element={<MemberRoute />}>
           <Route path="rh" element={<Recruitment />} />
+          <Route path="profil" element={<MemberProfile />} />
+          <Route path="trainings/:id/inscription" element={<ActivityInscription type="trainings" />} />
         </Route>
       </Route>
+
+      <Route path="admin/login" element={<AdminLogin />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="admin" element={<AdminLayout />}>

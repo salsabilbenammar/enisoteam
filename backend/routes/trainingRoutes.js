@@ -1,12 +1,12 @@
 const express = require('express');
 const trainingController = require('../controllers/trainingController');
-const { requireAdmin, optionalAuth } = require('../middlewares/authMiddleware');
+const { requireAdmin, optionalAuth, requireMember } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
 router.get('/', optionalAuth, trainingController.getAll);
 router.get('/:id/registrations', requireAdmin, trainingController.listRegistrations);
-router.post('/:id/register', trainingController.register);
+router.post('/:id/register', requireMember, trainingController.register);
 router.patch('/:id/inscription', requireAdmin, trainingController.setInscriptionOpen);
 router.get('/:id', optionalAuth, trainingController.getById);
 router.post('/', requireAdmin, trainingController.create);

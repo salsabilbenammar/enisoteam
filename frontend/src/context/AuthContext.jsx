@@ -72,6 +72,35 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const refreshProfile = async (payload) => {
+    if (payload && payload.id) {
+      const { token: freshToken, message, ...profile } = payload;
+      const nextUser = {
+        id: profile.id,
+        nom: profile.nom,
+        email: profile.email,
+        role: profile.role,
+        ...(profile.filiere !== undefined ? { filiere: profile.filiere } : {}),
+      };
+      const token = freshToken || localStorage.getItem(TOKEN_KEY);
+      persistSession(token, nextUser);
+      setUser(nextUser);
+      return nextUser;
+    }
+    const { data } = await api.get('/auth/me');
+    const { token: freshToken, ...profile } = data;
+    const nextUser = {
+      id: profile.id,
+      nom: profile.nom,
+      email: profile.email,
+      role: profile.role,
+      ...(profile.filiere !== undefined ? { filiere: profile.filiere } : {}),
+    };
+    persistSession(freshToken || localStorage.getItem(TOKEN_KEY), nextUser);
+    setUser(nextUser);
+    return nextUser;
+  };
+
   const logout = () => {
     clearSession();
     setUser(null);
@@ -79,7 +108,9 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = !!user;
   const isAdmin = user?.role === 'admin';
+  /** Accès fonctionnalités membres (inscriptions formations, Coin RH, contenus réservés). */
   const isMember = user?.role === 'member' || user?.role === 'admin';
+  const isClubMemberOnly = user?.role === 'member';
 
   return (
     <AuthContext.Provider
@@ -89,9 +120,11 @@ export function AuthProvider({ children }) {
         loading,
         login,
         logout,
+        refreshProfile,
         isAuthenticated,
         isAdmin,
         isMember,
+        isClubMemberOnly,
       }}
     >
       {children}
