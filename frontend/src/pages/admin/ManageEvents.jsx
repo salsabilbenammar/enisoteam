@@ -4,6 +4,7 @@ import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import FormQuestionPicker from '../../components/admin/FormQuestionPicker';
 import { toApiFields } from '../../data/formQuestionBank';
+import { minSelectableDateTime } from '../../utils/dateLimits';
 
 const empty = {
   titre: '',
@@ -204,6 +205,7 @@ export default function ManageEvents() {
               type="datetime-local"
               value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
+              min={minSelectableDateTime(form.date)}
               required
             />
           </div>

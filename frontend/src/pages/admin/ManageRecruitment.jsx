@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import MailTemplateEditor from '../../components/admin/MailTemplateEditor';
+import { minSelectableDate } from '../../utils/dateLimits';
 import styles from './ManageRecruitment.module.css';
 
 const STATUS_OPTIONS = [
@@ -97,6 +98,8 @@ export default function ManageRecruitment() {
   const [filterDate, setFilterDate] = useState('');
   const [filterTime, setFilterTime] = useState('');
   const [detail, setDetail] = useState(null);
+  const [detailPhone, setDetailPhone] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
 
   const [slots, setSlots] = useState([]);
   const [slotForm, setSlotForm] = useState(emptySlot);
@@ -106,6 +109,7 @@ export default function ManageRecruitment() {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [mailingId, setMailingId] = useState(null);
+  const mailingLock = useRef(false);
   const [checkingId, setCheckingId] = useState(null);
   const [stats, setStats] = useState({ total: 0, byStatus: {} });
   const [settingsPane, setSettingsPane] = useState('general');
@@ -279,9 +283,48 @@ export default function ManageRecruitment() {
     try {
       const { data } = await api.get(`/recruitment/candidates/${id}`);
       setDetail(data);
+      setDetailPhone(data.telephone || '');
     } catch (err) {
       setError(err.response?.data?.message || 'Détail impossible.');
     }
+  };
+
+  const saveDetailPhone = async () => {
+    if (!detail?.id) return;
+    const phone = detailPhone.trim();
+    if (!phone) {
+      setError('Numéro de téléphone requis.');
+      return;
+    }
+    setSavingPhone(true);
+    setError('');
+    try {
+      const { data } = await api.patch(`/recruitment/candidates/${detail.id}/telephone`, {
+        telephone: phone,
+      });
+      setDetail((prev) => (prev ? { ...prev, telephone: data.candidate.telephone } : prev));
+      setDetailPhone(data.candidate.telephone || phone);
+      flash(data.message || 'Téléphone mis à jour.');
+      await loadCandidates().catch(() => {});
+    } catch (err) {
+      setError(err.response?.data?.message || 'Mise à jour du téléphone impossible.');
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
+  const formatPhoneCell = (phone) => {
+    const value = String(phone || '').trim();
+    if (!value) return '—';
+    const digits = value.replace(/\D/g, '');
+    if (digits.length >= 8) {
+      return (
+        <a href={`tel:${digits}`} className={styles.phoneLink}>
+          {value}
+        </a>
+      );
+    }
+    return <span className={styles.phoneWarn} title="Numéro invalide ou incomplet">{value}</span>;
   };
 
   const deleteCandidate = async (id) => {
@@ -300,6 +343,8 @@ export default function ManageRecruitment() {
   };
 
   const sendConfirmationMail = async (id) => {
+    if (mailingLock.current) return;
+    mailingLock.current = true;
     setMailingId(id);
     setError('');
     try {
@@ -308,6 +353,7 @@ export default function ManageRecruitment() {
     } catch (err) {
       setError(err.response?.data?.message || "Envoi de l'email impossible.");
     } finally {
+      mailingLock.current = false;
       setMailingId(null);
     }
   };
@@ -330,7 +376,34 @@ export default function ManageRecruitment() {
     }
   };
 
+  const markAbsent = async (id) => {
+    const ok = await confirm({
+      title: 'Marquer absent ?',
+      message:
+        'Le candidat repassera en « En attente », son créneau sera libéré, et il pourra réserver à nouveau.',
+      confirmLabel: 'Marquer absent',
+    });
+    if (!ok) return;
+    setCheckingId(id);
+    setError('');
+    try {
+      const { data } = await api.post(`/recruitment/candidates/${id}/mark-absent`);
+      flash(data.message || 'Absence enregistrée.');
+      await Promise.all([
+        loadCandidates({ page: 1, statut: 'entretien_confirme' }),
+        loadStats(),
+        loadSchedule(),
+      ]);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Marquage impossible.');
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
   const sendSuccessPaymentMail = async (id) => {
+    if (mailingLock.current) return;
+    mailingLock.current = true;
     setMailingId(id);
     setError('');
     try {
@@ -343,6 +416,7 @@ export default function ManageRecruitment() {
     } catch (err) {
       setError(err.response?.data?.message || "Envoi de l'email impossible.");
     } finally {
+      mailingLock.current = false;
       setMailingId(null);
     }
   };
@@ -645,7 +719,7 @@ export default function ManageRecruitment() {
                       {c.prenom} {c.nom}
                     </td>
                     <td>{c.email}</td>
-                    <td>{c.telephone}</td>
+                    <td>{formatPhoneCell(c.telephone)}</td>
                     <td>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => openDetail(c.id)}>
                         Voir
@@ -673,15 +747,17 @@ export default function ManageRecruitment() {
                             Valider paiement
                           </button>
                         )}
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => sendConfirmationMail(c.id)}
-                          disabled={mailingId === c.id}
-                          title="Renvoyer le mail de confirmation + lien calendrier"
-                        >
-                          {mailingId === c.id ? 'Envoi…' : 'Mail'}
-                        </button>
+                        {c.statut !== 'paiement_confirme' && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => sendConfirmationMail(c.id)}
+                            disabled={mailingId === c.id}
+                            title="Renvoyer le mail de confirmation + lien calendrier"
+                          >
+                            {mailingId === c.id ? 'Envoi…' : 'Mail'}
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
@@ -731,8 +807,7 @@ export default function ManageRecruitment() {
             <div>
               <h3>Entretiens confirmés</h3>
               <p className={styles.meta}>
-                Marquez ✓ Présent à l&apos;arrivée du candidat — il passe automatiquement dans
-                Présents.
+                Marquez ✓ Présent à l&apos;arrivée, ou ✕ Absent (retour en file, créneau libéré).
               </p>
             </div>
             <strong className={styles.flowStat}>{interviewsCount}</strong>
@@ -756,7 +831,7 @@ export default function ManageRecruitment() {
                       {c.prenom} {c.nom}
                     </td>
                     <td>{c.email}</td>
-                    <td>{c.telephone}</td>
+                    <td>{formatPhoneCell(c.telephone)}</td>
                     <td>
                       {c.date_slot
                         ? `${formatDay(c.date_slot)} · ${formatTime(c.heure_slot)}`
@@ -766,15 +841,26 @@ export default function ManageRecruitment() {
                       <span className={styles.badge}>{LABEL[c.statut] || c.statut}</span>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className={`btn btn-primary btn-sm ${styles.checkBtn}`}
-                        onClick={() => markPresent(c.id)}
-                        disabled={checkingId === c.id}
-                        title="Marquer présent à l'entretien"
-                      >
-                        {checkingId === c.id ? '…' : '✓ Présent'}
-                      </button>
+                      <div className={styles.rowActions}>
+                        <button
+                          type="button"
+                          className={`btn btn-primary btn-sm ${styles.checkBtn}`}
+                          onClick={() => markPresent(c.id)}
+                          disabled={checkingId === c.id}
+                          title="Marquer présent à l'entretien"
+                        >
+                          {checkingId === c.id ? '…' : '✓ Présent'}
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn-secondary btn-sm ${styles.absentBtn}`}
+                          onClick={() => markAbsent(c.id)}
+                          disabled={checkingId === c.id}
+                          title="Marquer absent — retour en file d'attente"
+                        >
+                          {checkingId === c.id ? '…' : '✕ Absent'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -818,7 +904,7 @@ export default function ManageRecruitment() {
                       {c.prenom} {c.nom}
                     </td>
                     <td>{c.email}</td>
-                    <td>{c.telephone}</td>
+                    <td>{formatPhoneCell(c.telephone)}</td>
                     <td>
                       {c.date_slot
                         ? `${formatDay(c.date_slot)} · ${formatTime(c.heure_slot)}`
@@ -856,7 +942,13 @@ export default function ManageRecruitment() {
             <div className="form-row two">
               <div className="form-group">
                 <label>Date *</label>
-                <input type="date" value={slotForm.date_slot} onChange={(e) => setSlotForm({ ...slotForm, date_slot: e.target.value })} required />
+                <input
+                  type="date"
+                  value={slotForm.date_slot}
+                  onChange={(e) => setSlotForm({ ...slotForm, date_slot: e.target.value })}
+                  min={minSelectableDate(slotForm.date_slot)}
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>Heure *</label>
@@ -982,7 +1074,7 @@ export default function ManageRecruitment() {
                         {c.prenom} {c.nom}
                       </td>
                       <td>{c.email}</td>
-                      <td>{c.telephone}</td>
+                      <td>{formatPhoneCell(c.telephone)}</td>
                       <td>{c.lieu || '—'}</td>
                       <td>
                         <span className={styles.badge}>{LABEL[c.statut] || c.statut}</span>
@@ -1248,9 +1340,37 @@ export default function ManageRecruitment() {
             <h2>
               {detail.prenom} {detail.nom}
             </h2>
-            <p className={styles.meta}>
-              {detail.email} · {detail.telephone}
-            </p>
+            <p className={styles.meta}>{detail.email}</p>
+
+            <div className={styles.phoneBlock}>
+              <label htmlFor="detail-telephone">
+                <strong>Téléphone</strong>
+              </label>
+              <div className={styles.phoneRow}>
+                <input
+                  id="detail-telephone"
+                  type="tel"
+                  inputMode="tel"
+                  value={detailPhone}
+                  onChange={(e) => setDetailPhone(e.target.value)}
+                  placeholder="Ex. 20 123 456"
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={saveDetailPhone}
+                  disabled={savingPhone}
+                >
+                  {savingPhone ? '…' : 'Enregistrer'}
+                </button>
+              </div>
+              {detail.telephone && String(detail.telephone).replace(/\D/g, '').length >= 8 && (
+                <a href={`tel:${String(detail.telephone).replace(/\D/g, '')}`} className={styles.phoneLink}>
+                  Appeler {detail.telephone}
+                </a>
+              )}
+            </div>
+
             {detail.photo_path && (
               <img
                 src={assetUrl(detail.photo_path)}

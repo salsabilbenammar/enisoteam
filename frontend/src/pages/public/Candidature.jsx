@@ -205,9 +205,14 @@ export default function Candidature() {
             <input
               id="telephone"
               name="telephone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={form.telephone}
               onChange={onChange}
-              placeholder="Short answer"
+              placeholder="e.g. 20 123 456"
+              pattern="[0-9+\s().-]{8,}"
+              title="Enter a valid phone number (at least 8 digits)"
               required
             />
           </div>

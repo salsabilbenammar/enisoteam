@@ -1,5 +1,5 @@
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './Navbar.module.css';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -16,7 +16,9 @@ const BASE_LINKS = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [loginMenuOpen, setLoginMenuOpen] = useState(false);
   const [candidatureOpen, setCandidatureOpen] = useState(false);
+  const loginMenuRef = useRef(null);
   const { isAdmin, isMember, user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -27,22 +29,45 @@ export default function Navbar() {
       .catch(() => setCandidatureOpen(false));
   }, []);
 
+  useEffect(() => {
+    if (!loginMenuOpen) return undefined;
+    const onPointerDown = (e) => {
+      if (loginMenuRef.current && !loginMenuRef.current.contains(e.target)) {
+        setLoginMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setLoginMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [loginMenuOpen]);
+
   const links = [
     ...BASE_LINKS.slice(0, 6),
     ...(candidatureOpen ? [{ to: '/candidature', label: 'Candidature' }] : []),
     BASE_LINKS[6],
   ];
 
+  const closeAll = () => {
+    setOpen(false);
+    setLoginMenuOpen(false);
+  };
+
   const handleLogout = () => {
     logout();
-    setOpen(false);
-    navigate('/');
+    closeAll();
+    navigate('/', { replace: true });
   };
 
   return (
     <header className={styles.header}>
       <div className={`container ${styles.inner}`}>
-        <Link to="/" className={styles.brand} onClick={() => setOpen(false)}>
+        <Link to="/" className={styles.brand} onClick={closeAll}>
           <img src="/logo.png" alt="ENISO Team" className={styles.logoImg} />
           <span className={styles.brandText}>
             <strong>ENISO Team</strong>
@@ -54,7 +79,10 @@ export default function Navbar() {
           className={styles.toggle}
           type="button"
           aria-label="Menu"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            setOpen((v) => !v);
+            setLoginMenuOpen(false);
+          }}
         >
           <span />
           <span />
@@ -68,7 +96,7 @@ export default function Navbar() {
               to={l.to}
               end={l.to === '/'}
               className={({ isActive }) => (isActive ? styles.active : undefined)}
-              onClick={() => setOpen(false)}
+              onClick={closeAll}
               title={l.membersOnly && !isMember ? 'Réservé aux membres inscrits' : undefined}
             >
               {l.label}
@@ -76,7 +104,7 @@ export default function Navbar() {
             </NavLink>
           ))}
           {isAdmin ? (
-            <Link to="/admin" className={styles.cta} onClick={() => setOpen(false)}>
+            <Link to="/admin" className={styles.cta} onClick={closeAll}>
               Admin
             </Link>
           ) : isMember ? (
@@ -84,7 +112,7 @@ export default function Navbar() {
               <NavLink
                 to="/profil"
                 className={({ isActive }) => (isActive ? styles.active : undefined)}
-                onClick={() => setOpen(false)}
+                onClick={closeAll}
               >
                 Profil
               </NavLink>
@@ -93,9 +121,27 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <Link to="/login" className={styles.cta} onClick={() => setOpen(false)}>
-              Connexion
-            </Link>
+            <div className={styles.loginMenu} ref={loginMenuRef}>
+              <button
+                type="button"
+                className={styles.ctaBtn}
+                aria-haspopup="menu"
+                aria-expanded={loginMenuOpen}
+                onClick={() => setLoginMenuOpen((v) => !v)}
+              >
+                Connexion ▾
+              </button>
+              {loginMenuOpen && (
+                <div className={styles.loginDropdown} role="menu">
+                  <Link to="/login" role="menuitem" onClick={closeAll}>
+                    Membre
+                  </Link>
+                  <Link to="/admin/login" role="menuitem" onClick={closeAll}>
+                    Admin
+                  </Link>
+                </div>
+              )}
+            </div>
           )}
         </nav>
       </div>

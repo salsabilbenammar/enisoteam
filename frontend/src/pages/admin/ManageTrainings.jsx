@@ -4,6 +4,7 @@ import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import FormQuestionPicker from '../../components/admin/FormQuestionPicker';
 import { toApiFields } from '../../data/formQuestionBank';
+import { minSelectableDate } from '../../utils/dateLimits';
 
 const empty = {
   titre: '',
@@ -185,7 +186,13 @@ export default function ManageTrainings() {
           </div>
           <div className="form-group">
             <label>Date</label>
-            <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
+            <input
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+              min={minSelectableDate(form.date)}
+              required
+            />
           </div>
         </div>
         <div className="form-group">

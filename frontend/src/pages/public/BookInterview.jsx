@@ -28,6 +28,31 @@ function dateKey(value) {
   return `${y}-${m}-${day}`;
 }
 
+function timeKey(value) {
+  return String(value || '00:00').slice(0, 5);
+}
+
+function localToday() {
+  return dateKey(new Date());
+}
+
+function localNowTime() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Masque créneaux complets et passés (date ou heure du jour). */
+function isSlotSelectable(slot) {
+  if (!slot) return false;
+  if (Number(slot.places_restantes) <= 0) return false;
+  const day = dateKey(slot.date_slot);
+  const today = localToday();
+  if (!day || day < today) return false;
+  if (day === today && timeKey(slot.heure_slot) <= localNowTime()) return false;
+  return true;
+}
+
 export default function BookInterview() {
   const { token: rawToken } = useParams();
   const token = decodeURIComponent(String(rawToken || ''))
@@ -47,11 +72,14 @@ export default function BookInterview() {
       .get(`/recruitment/book/${token}`)
       .then((res) => {
         setCandidate(res.data.candidate);
-        const list = res.data.slots || [];
+        const list = (res.data.slots || []).filter(isSlotSelectable);
         setSlots(list);
+        setSelected((prev) => (list.some((s) => String(s.id) === String(prev)) ? prev : ''));
         if (list.length) {
           const firstDay = dateKey(list[0].date_slot);
-          setActiveDay((prev) => prev || firstDay);
+          setActiveDay((prev) => (list.some((s) => dateKey(s.date_slot) === prev) ? prev : firstDay));
+        } else {
+          setActiveDay('');
         }
       })
       .catch((err) => setError(err.response?.data?.message || 'Lien invalide.'));
@@ -79,8 +107,11 @@ export default function BookInterview() {
 
   const onBook = async (e) => {
     e.preventDefault();
-    if (!selected) {
-      setError('Choisissez un créneau.');
+    const chosen = slots.find((s) => String(s.id) === String(selected));
+    if (!chosen || !isSlotSelectable(chosen)) {
+      setError('Ce créneau n’est plus disponible. Choisissez un autre horaire.');
+      setSelected('');
+      await load();
       return;
     }
     setError('');
@@ -92,6 +123,7 @@ export default function BookInterview() {
       await load();
     } catch (err) {
       setError(err.response?.data?.message || 'Réservation impossible.');
+      await load();
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +163,9 @@ export default function BookInterview() {
           <section className={`card ${styles.card}`}>
             <h2>Calendrier des créneaux</h2>
             {days.length === 0 ? (
-              <p className={styles.hint}>Aucun créneau disponible pour le moment.</p>
+              <p className={styles.hint}>
+                Aucun créneau disponible pour le moment (complets ou déjà passés).
+              </p>
             ) : (
               <form className="form" onSubmit={onBook}>
                 <div className={styles.calendar}>

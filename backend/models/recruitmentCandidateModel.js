@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { STATUSES } = require('../services/recruitmentMailTemplates');
+const { isBookable } = require('./recruitmentSlotModel');
 
 async function createHistory(candidateId, oldStatut, newStatut, note = null) {
   await pool.execute(
@@ -227,6 +228,20 @@ async function bookSlot(candidateId, slotId) {
       throw err;
     }
 
+    const enriched = {
+      ...slot,
+      places_restantes: Math.max(0, Number(slot.max_places) - Number(slot.reserved)),
+    };
+    if (!isBookable(enriched)) {
+      const err = new Error(
+        Number(enriched.places_restantes) <= 0
+          ? 'Ce créneau est complet.'
+          : 'Ce créneau est déjà passé.'
+      );
+      err.status = 400;
+      throw err;
+    }
+
     await conn.execute(
       `UPDATE recruitment_candidates
        SET interview_slot_id = ?, booked_at = NOW(), statut = 'entretien_confirme'
@@ -285,6 +300,48 @@ async function markSheetsExported(id) {
   return findById(id);
 }
 
+async function updateTelephone(id, telephone) {
+  const phone = String(telephone || '').trim();
+  if (!phone) {
+    const err = new Error('Numéro de téléphone requis.');
+    err.status = 400;
+    throw err;
+  }
+  const [result] = await pool.execute(
+    `UPDATE recruitment_candidates SET telephone = ? WHERE id = ?`,
+    [phone, id]
+  );
+  if (!result.affectedRows) return null;
+  return findById(id);
+}
+
+/** Absent à l'entretien : libère le créneau et remet en file d'attente. */
+async function markAbsent(id) {
+  const existing = await findById(id);
+  if (!existing) return null;
+  if (existing.statut !== 'entretien_confirme') {
+    const err = new Error(
+      'Seuls les candidats à l\'entretien confirmé peuvent être marqués absents.'
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  await pool.execute(
+    `UPDATE recruitment_candidates
+     SET statut = 'en_attente', interview_slot_id = NULL, booked_at = NULL
+     WHERE id = ?`,
+    [id]
+  );
+  await createHistory(
+    id,
+    existing.statut,
+    'en_attente',
+    'Absent à l\'entretien — créneau libéré, retour en file'
+  );
+  return findById(id);
+}
+
 module.exports = {
   create,
   findById,
@@ -298,4 +355,6 @@ module.exports = {
   createHistory,
   getStats,
   markSheetsExported,
+  updateTelephone,
+  markAbsent,
 };

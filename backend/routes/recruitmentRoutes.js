@@ -15,6 +15,11 @@ router.post('/book/:token', recruitmentController.bookSlot);
 router.get('/candidates', requireAdmin, recruitmentController.listCandidates);
 router.get('/stats', requireAdmin, recruitmentController.getStats);
 router.get('/candidates/:id', requireAdmin, recruitmentController.getCandidate);
+router.patch(
+  '/candidates/:id/telephone',
+  requireAdmin,
+  recruitmentController.updateCandidateTelephone
+);
 router.patch('/candidates/status', requireAdmin, recruitmentController.bulkStatus);
 router.delete('/candidates/:id', requireAdmin, recruitmentController.removeCandidate);
 router.post(
@@ -26,6 +31,11 @@ router.post(
   '/candidates/:id/mark-present',
   requireAdmin,
   recruitmentController.markPresent
+);
+router.post(
+  '/candidates/:id/mark-absent',
+  requireAdmin,
+  recruitmentController.markAbsent
 );
 router.post(
   '/candidates/:id/send-success-payment',

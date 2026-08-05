@@ -10,9 +10,43 @@ async function getAll() {
   return rows.map(enrich);
 }
 
+function toDayKey(value) {
+  if (value instanceof Date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  }
+  return String(value || '').slice(0, 10);
+}
+
+function toTimeKey(value) {
+  const raw = String(value || '00:00:00');
+  return raw.length >= 5 ? raw.slice(0, 5) : raw;
+}
+
+function todayKeyLocal() {
+  return toDayKey(new Date());
+}
+
+function nowTimeKeyLocal() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Créneau encore réservable : places libres + date/heure non passées. */
+function isBookable(slot, today = todayKeyLocal(), nowTime = nowTimeKeyLocal()) {
+  if (!slot || Number(slot.places_restantes) <= 0) return false;
+  const day = toDayKey(slot.date_slot);
+  if (!day || day < today) return false;
+  if (day === today && toTimeKey(slot.heure_slot) <= nowTime) return false;
+  return true;
+}
+
 async function getAvailable() {
   const all = await getAll();
-  return all.filter((s) => s.places_restantes > 0);
+  const today = todayKeyLocal();
+  const nowTime = nowTimeKeyLocal();
+  return all.filter((s) => isBookable(s, today, nowTime));
 }
 
 async function getById(id) {
@@ -105,4 +139,15 @@ async function getSchedule() {
   return [...map.values()];
 }
 
-module.exports = { getAll, getAvailable, getById, create, update, remove, getSchedule };
+module.exports = {
+  getAll,
+  getAvailable,
+  getById,
+  create,
+  update,
+  remove,
+  getSchedule,
+  isBookable,
+  toDayKey,
+  toTimeKey,
+};

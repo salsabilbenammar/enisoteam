@@ -31,6 +31,27 @@ function frontendBase() {
   return (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
 }
 
+/** Date locale YYYY-MM-DD (serveur). */
+function todayKey() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function toDateKey(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  }
+  return String(value).slice(0, 10);
+}
+
+function isPastDate(value) {
+  const key = toDateKey(value);
+  return Boolean(key && key < todayKey());
+}
+
 async function getPublicStatus(_req, res, next) {
   try {
     const open = await settingsModel.isOpen();
@@ -84,6 +105,10 @@ async function apply(req, res, next) {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return res.status(400).json({ message: 'Email invalide.' });
+    }
+    const phoneDigits = String(telephone || '').replace(/\D/g, '');
+    if (phoneDigits.length < 8) {
+      return res.status(400).json({ message: 'Numéro de téléphone invalide (8 chiffres minimum).' });
     }
 
     const photo = req.files?.photo?.[0];
@@ -250,6 +275,24 @@ async function getCandidate(req, res, next) {
   }
 }
 
+async function updateCandidateTelephone(req, res, next) {
+  try {
+    const telephone = req.body.telephone;
+    const digits = String(telephone || '').replace(/\D/g, '');
+    if (digits.length < 8) {
+      return res.status(400).json({
+        message: 'Numéro de téléphone invalide (8 chiffres minimum).',
+      });
+    }
+    const row = await candidateModel.updateTelephone(req.params.id, telephone);
+    if (!row) return res.status(404).json({ message: 'Candidat introuvable.' });
+    res.json({ message: 'Téléphone mis à jour.', candidate: row });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
 async function bulkStatus(req, res, next) {
   try {
     const ids = parseIds(req.body);
@@ -337,6 +380,20 @@ async function markPresent(req, res, next) {
     );
     res.json({
       message: `${candidate.prenom} ${candidate.nom} marqué(e) présent(e).`,
+      candidate: updated,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
+async function markAbsent(req, res, next) {
+  try {
+    const updated = await candidateModel.markAbsent(req.params.id);
+    if (!updated) return res.status(404).json({ message: 'Candidat introuvable.' });
+    res.json({
+      message: `${updated.prenom} ${updated.nom} marqué(e) absent(e) — retour en file d'attente.`,
       candidate: updated,
     });
   } catch (err) {
@@ -563,6 +620,9 @@ async function createSlot(req, res, next) {
     if (!date_slot || !heure_slot) {
       return res.status(400).json({ message: 'Date et heure requises.' });
     }
+    if (isPastDate(date_slot)) {
+      return res.status(400).json({ message: 'Impossible de créer un créneau à une date déjà passée.' });
+    }
     const max = Number(max_places || 10);
     if (!Number.isFinite(max) || max < 1) {
       return res.status(400).json({ message: 'Nombre de places invalide.' });
@@ -659,10 +719,12 @@ module.exports = {
   listCandidates,
   getStats,
   getCandidate,
+  updateCandidateTelephone,
   bulkStatus,
   removeCandidate,
   resendConfirmation,
   markPresent,
+  markAbsent,
   sendSuccessPayment,
   scheduleInvitations,
   schedulePaymentRequests,

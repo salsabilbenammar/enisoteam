@@ -262,6 +262,39 @@
   font-weight: 600;
 }
 
+.phoneLink {
+  color: var(--accent-bright);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.phoneWarn {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.phoneBlock {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.85rem 0 1.1rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: rgba(77, 163, 255, 0.06);
+}
+
+.phoneRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.phoneRow input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
 .pagination {
   display: flex;
   justify-content: space-between;
@@ -321,6 +354,16 @@
 
 .checkBtn {
   min-width: 6.5rem;
+}
+
+.absentBtn {
+  min-width: 6.5rem;
+  border-color: rgba(248, 113, 113, 0.45) !important;
+  color: #fca5a5 !important;
+}
+
+.absentBtn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12) !important;
 }
 
 .overlay {

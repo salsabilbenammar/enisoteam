@@ -140,6 +140,43 @@
   background: linear-gradient(135deg, rgba(77, 163, 255, 0.25), rgba(37, 99, 235, 0.3));
 }
 
+.loginMenu {
+  position: relative;
+}
+
+.loginDropdown {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  z-index: 60;
+}
+
+.loginDropdown a {
+  color: var(--text) !important;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  padding: 0.65rem 0.85rem !important;
+  border-radius: 8px;
+}
+
+.loginDropdown a::after {
+  display: none !important;
+}
+
+.loginDropdown a:hover {
+  background: rgba(77, 163, 255, 0.12);
+  color: var(--accent-bright) !important;
+}
+
 .cta::after {
   display: none !important;
 }
@@ -178,5 +215,21 @@
 
   .cta {
     text-align: center;
+  }
+
+  .loginMenu {
+    width: 100%;
+  }
+
+  .ctaBtn {
+    width: 100%;
+  }
+
+  .loginDropdown {
+    position: static;
+    margin-top: 0.5rem;
+    min-width: 0;
+    width: 100%;
+    box-shadow: none;
   }
 }

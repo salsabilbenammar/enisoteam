@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import { minSelectableDate } from '../../utils/dateLimits';
 
 const empty = { titre: '', contenu: '', date_publication: '', lien_formulaire: '', image: null };
 
@@ -108,6 +109,7 @@ export default function ManageAnnouncements() {
               type="date"
               value={form.date_publication}
               onChange={(e) => setForm({ ...form, date_publication: e.target.value })}
+              min={minSelectableDate(form.date_publication)}
               required
             />
           </div>

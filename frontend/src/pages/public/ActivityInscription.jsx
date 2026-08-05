@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
+import { isBirthDateField, localToday, minSelectableDate } from '../../utils/dateLimits';
 import styles from './Candidature.module.css';
 
 const LEVELS = ['1st year', '2nd year', '3rd year'];
@@ -416,6 +417,11 @@ export default function ActivityInscription({ type }) {
                         setCustomAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))
                       }
                       required={field.required}
+                      {...(field.type === 'date'
+                        ? isBirthDateField(field)
+                          ? { max: localToday() }
+                          : { min: minSelectableDate(customAnswers[field.id]) }
+                        : {})}
                     />
                   )}
                 </>
