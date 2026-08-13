@@ -5,7 +5,11 @@ import api, { assetUrl, openStepDocument } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../components/common/ConfirmDialog';
-import { formatArchiveSeason, LAST_MANDATE_PROJECT_LEAD, seasonLabelForItem } from '../../utils/archiveProjects';
+import {
+  formatArchiveSeason,
+  resolveProjectLead,
+  seasonLabelForItem,
+} from '../../utils/archiveProjects';
 import styles from './Projects.module.css';
 
 const STEP_LABEL = {
@@ -286,9 +290,7 @@ function ProjectDetailModal({ project, onClose, onGroupProgress, initialGroupInd
       ? [activeGroup.supervisors]
       : [];
   const canWork = Boolean(user && activeGroup && userInGroup(user, activeGroup));
-  const archiveLead =
-    project.project_lead ||
-    (project.archive_year ? LAST_MANDATE_PROJECT_LEAD : null);
+  const archiveLead = resolveProjectLead(project);
 
   return createPortal(
     <div className={styles.modalOverlay} onClick={onClose} role="presentation">
@@ -386,9 +388,9 @@ function ProjectDetailModal({ project, onClose, onGroupProgress, initialGroupInd
                   </span>
                 ) : null}
               </div>
-              {isArchive && archiveLead ? (
+              {archiveLead ? (
                 <p className={styles.projectLead}>
-                  Réalisé par : <strong>{archiveLead}</strong>
+                  Responsable projet : <strong>{archiveLead}</strong>
                 </p>
               ) : null}
               {!isArchive ? <p className={styles.sidebarDesc}>{project.description}</p> : null}
@@ -741,10 +743,10 @@ export default function Projects() {
       image: item.project_image || catalog?.image,
       gallery: item.project_gallery || catalog?.gallery || [],
       archive_year: item.archive_year ?? catalog?.archive_year ?? null,
-      project_lead:
-        item.project_lead ??
-        catalog?.project_lead ??
-        (item.archive_year ? LAST_MANDATE_PROJECT_LEAD : null),
+      project_lead: resolveProjectLead({
+        project_lead: item.project_lead ?? catalog?.project_lead ?? null,
+        archive_year: item.archive_year ?? catalog?.archive_year ?? null,
+      }),
       groups: mergedGroups,
     };
 

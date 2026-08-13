@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api, { assetUrl, openStepDocument } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
 import styles from './MyProjects.module.css';
 
 const STATUS_LABEL = {
@@ -13,6 +14,7 @@ const STATUS_LABEL = {
 };
 
 export default function MyProjects() {
+  const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -129,6 +131,12 @@ export default function MyProjects() {
             Parcours d’étapes du groupe : terminez l’étape en cours, l’admin valide, puis
             l’avancement augmente.
           </p>
+          {isAdmin ? (
+            <p className={styles.adminHint}>
+              Connecté en administrateur : si votre email figure dans un groupe attribué, vous
+              pouvez avancer les étapes ici comme participant.
+            </p>
+          ) : null}
         </div>
         <div className={styles.headerActions}>
           <Link to="/projets#catalogue" className="btn btn-secondary">

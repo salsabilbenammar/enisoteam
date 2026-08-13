@@ -199,6 +199,10 @@ function StatCard({ item, value, index }) {
   );
 }
 
+function countList(data) {
+  return Array.isArray(data) ? data.length : 0;
+}
+
 export default function Dashboard() {
   const { admin } = useAuth();
   const [stats, setStats] = useState(null);
@@ -206,29 +210,45 @@ export default function Dashboard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
+    const soft = (promise) => promise.catch(() => ({ data: null }));
+
     Promise.all([
-      api.get('/announcements'),
-      api.get('/board'),
-      api.get('/trainings'),
-      api.get('/events'),
-      api.get('/gallery'),
-      api.get('/recruitment/candidates', { params: { limit: 1 } }),
-      api.get('/recruitment/stats').catch(() => ({ data: null })),
+      soft(api.get('/announcements')),
+      soft(api.get('/board')),
+      soft(api.get('/trainings')),
+      soft(api.get('/events')),
+      soft(api.get('/gallery')),
+      soft(api.get('/recruitment/candidates', { params: { limit: 1 } })),
+      soft(api.get('/recruitment/stats')),
     ])
       .then(([a, b, t, e, g, r, s]) => {
-        const board = mergeBoardMembers(b.data || []);
+        if (cancelled) return;
+        const coreFailed = [a, b, t, e, g].every((res) => res.data == null);
+        if (coreFailed) {
+          setError('Impossible de charger le tableau de bord.');
+          return;
+        }
+        const board = mergeBoardMembers(Array.isArray(b.data) ? b.data : []);
         setStats({
-          announcements: a.data.length,
+          announcements: countList(a.data),
           // Postes officiels du bureau (pas le nombre brut de lignes en BDD)
           board: board.length,
-          trainings: t.data.length,
-          events: e.data.length,
-          gallery: g.data.length,
-          candidates: r.data.total,
+          trainings: countList(t.data),
+          events: countList(e.data),
+          gallery: countList(g.data),
+          candidates: r.data?.total ?? null,
         });
         setRecruitment(s.data);
+        setError('');
       })
-      .catch(() => setError('Impossible de charger le tableau de bord.'));
+      .catch(() => {
+        if (!cancelled) setError('Impossible de charger le tableau de bord.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const todayLabel = useMemo(

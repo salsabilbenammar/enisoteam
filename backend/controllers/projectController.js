@@ -575,10 +575,30 @@ async function submitMyStep(req, res, next) {
         }
       : null;
 
+    // Admin : utiliser l’id membre lié à l’email (pas l’id admin), sinon null
+    let submitterId = null;
+    if (req.user.role === 'member') {
+      submitterId = Number(req.user.id) || null;
+    } else if (req.user.email) {
+      const matched = (access.members || []).find((m) => {
+        const email = String(req.user.email || '')
+          .trim()
+          .toLowerCase();
+        const memberEmail = String(m.email || '')
+          .trim()
+          .toLowerCase();
+        return email && memberEmail && email === memberEmail;
+      });
+      submitterId = matched?.member_id ? Number(matched.member_id) : null;
+      if (!submitterId) {
+        submitterId = await projectModel.resolveMemberIdByEmail(req.user.email);
+      }
+    }
+
     const pack = await projectModel.submitAssignmentStep(
       Number(req.params.id),
       Number(req.params.stepId),
-      req.user.id,
+      submitterId,
       document
     );
     res.json({

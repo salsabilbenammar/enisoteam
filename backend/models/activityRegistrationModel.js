@@ -65,22 +65,38 @@ function normalizeEvent(row) {
 
 function normalizeTraining(row) {
   if (!row) return null;
+  const count = Number(row.inscriptions_count) || 0;
+  const payante = Number(row.payante) === 1 || row.payante === true;
   return {
     ...row,
     inscription_ouverte:
       Number(row.inscription_ouverte) === 1 || row.inscription_ouverte === true,
-    payante: Number(row.payante) === 1 || row.payante === true,
+    payante,
     prix: row.prix || null,
+    fifo_paiement: payante && (Number(row.fifo_paiement) === 1 || row.fifo_paiement === true),
+    inscriptions_count: count,
     champs_personnalises: normalizeCustomFields(row.champs_personnalises),
   };
 }
 
 function normalizeRegistration(row) {
   if (!row) return null;
+  const accepte =
+    Number(row.accepte_paiement) === 1 || row.accepte_paiement === true;
+  const fromFinance =
+    Number(row.paiement_finance) === 1 || row.paiement_finance === true;
+  const fromFlag =
+    Number(row.paiement_valide) === 1 || row.paiement_valide === true;
+  const paiementValide = fromFlag || fromFinance;
+  const paiementAt = row.paiement_at || row.paiement_valide_at || null;
   return {
     ...row,
     accompagnants: parseJsonField(row.accompagnants, []),
     reponses_personnalisees: parseJsonField(row.reponses_personnalisees, {}),
+    accepte_paiement: accepte,
+    paiement_valide: paiementValide,
+    paiement_via_finance: fromFinance,
+    paiement_at: paiementValide ? paiementAt : null,
   };
 }
 
@@ -217,11 +233,107 @@ async function createTrainingRegistration(trainingId, data) {
 }
 
 async function listTrainingRegistrations(trainingId) {
-  const [rows] = await pool.execute(
-    `SELECT * FROM training_registrations WHERE training_id = ? ORDER BY created_at ASC`,
-    [trainingId]
-  );
-  return rows.map(normalizeRegistration);
+  try {
+    const [rows] = await pool.execute(
+      `SELECT r.*,
+              EXISTS (
+                SELECT 1
+                FROM member_payments p
+                JOIN members m ON m.id = p.member_id
+                WHERE p.cotisation_type = 'formation'
+                  AND p.detail_ref_id = r.training_id
+                  AND LOWER(TRIM(m.email)) = LOWER(TRIM(r.email))
+              ) AS paiement_finance,
+              COALESCE(
+                r.paiement_valide_at,
+                (
+                  SELECT MIN(CONCAT(p.date_paiement, ' 00:00:00'))
+                  FROM member_payments p
+                  JOIN members m ON m.id = p.member_id
+                  WHERE p.cotisation_type = 'formation'
+                    AND p.detail_ref_id = r.training_id
+                    AND LOWER(TRIM(m.email)) = LOWER(TRIM(r.email))
+                )
+              ) AS paiement_at
+       FROM training_registrations r
+       WHERE r.training_id = ?
+       ORDER BY r.created_at ASC`,
+      [trainingId]
+    );
+    return rows.map(normalizeRegistration);
+  } catch (err) {
+    if (err.code !== 'ER_BAD_FIELD_ERROR' && err.code !== 'ER_NO_SUCH_TABLE') throw err;
+    try {
+      const [rows] = await pool.execute(
+        `SELECT r.*,
+                EXISTS (
+                  SELECT 1
+                  FROM member_payments p
+                  JOIN members m ON m.id = p.member_id
+                  WHERE p.cotisation_type = 'formation'
+                    AND p.detail_ref_id = r.training_id
+                    AND LOWER(TRIM(m.email)) = LOWER(TRIM(r.email))
+                ) AS paiement_finance
+         FROM training_registrations r
+         WHERE r.training_id = ?
+         ORDER BY r.created_at ASC`,
+        [trainingId]
+      );
+      return rows.map(normalizeRegistration);
+    } catch (err2) {
+      if (err2.code !== 'ER_BAD_FIELD_ERROR' && err2.code !== 'ER_NO_SUCH_TABLE') throw err2;
+      const [rows] = await pool.execute(
+        `SELECT * FROM training_registrations WHERE training_id = ? ORDER BY created_at ASC`,
+        [trainingId]
+      );
+      return rows.map((r) =>
+        normalizeRegistration({ ...r, paiement_valide: 0, paiement_finance: 0 })
+      );
+    }
+  }
+}
+
+async function setTrainingRegistrationPayment(registrationId, trainingId, validated) {
+  const value = validated ? 1 : 0;
+  try {
+    const [result] = await pool.execute(
+      `UPDATE training_registrations
+       SET paiement_valide = ?,
+           paiement_valide_at = CASE
+             WHEN ? = 1 THEN COALESCE(paiement_valide_at, NOW())
+             ELSE NULL
+           END
+       WHERE id = ? AND training_id = ?`,
+      [value, value, registrationId, trainingId]
+    );
+    if (!result.affectedRows) return null;
+  } catch (err) {
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      try {
+        const [result] = await pool.execute(
+          `UPDATE training_registrations
+           SET paiement_valide = ?
+           WHERE id = ? AND training_id = ?`,
+          [value, registrationId, trainingId]
+        );
+        if (!result.affectedRows) return null;
+      } catch (err2) {
+        if (err2.code === 'ER_BAD_FIELD_ERROR') {
+          const e = new Error(
+            'Colonne paiement_valide absente. Exécutez database/migrate_training_paiement_valide.js'
+          );
+          e.status = 503;
+          throw e;
+        }
+        throw err2;
+      }
+    } else {
+      throw err;
+    }
+  }
+
+  const list = await listTrainingRegistrations(trainingId);
+  return list.find((r) => Number(r.id) === Number(registrationId)) || null;
 }
 
 module.exports = {
@@ -232,4 +344,5 @@ module.exports = {
   listEventRegistrations,
   createTrainingRegistration,
   listTrainingRegistrations,
+  setTrainingRegistrationPayment,
 };

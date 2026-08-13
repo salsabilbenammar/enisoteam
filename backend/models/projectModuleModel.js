@@ -1,10 +1,31 @@
 const pool = require('../config/db');
-const { SHOWCASE_ORDER = [] } = require('../../database/archiveProjectsConfig');
+const {
+  SHOWCASE_ORDER = [],
+  PROJECT_LEAD_BY_END_YEAR = {},
+  PROJECT_LEAD: FALLBACK_LAST_LEAD = 'Achref Bouzidi',
+} = require('../../database/archiveProjectsConfig');
 const {
   archiveEndYearFromDate,
   formatArchiveSeason,
   currentArchiveEndYear,
 } = require('../../database/archiveSeason');
+
+const CURRENT_BOARD_PROJECT_LEAD = 'Dhouha Kmala';
+
+function projectLeadForEndYear(endYear) {
+  const n = endYear != null && endYear !== '' ? Number(endYear) : null;
+  if (n && !Number.isNaN(n) && PROJECT_LEAD_BY_END_YEAR[n]) {
+    return PROJECT_LEAD_BY_END_YEAR[n];
+  }
+  if (n === 2026) return FALLBACK_LAST_LEAD;
+  return CURRENT_BOARD_PROJECT_LEAD;
+}
+
+function resolveStoredOrSeasonLead(stored, endYear) {
+  const s = stored != null ? String(stored).trim() : '';
+  if (s) return s;
+  return projectLeadForEndYear(endYear != null ? endYear : currentArchiveEndYear());
+}
 
 function sortShowcaseRealizations(items) {
   const order = SHOWCASE_ORDER.map((t) => String(t).trim().toLowerCase());
@@ -80,12 +101,13 @@ function mapProjectCatalogRow(row) {
   if (!row) return row;
   const archiveYear = row.archive_year != null ? Number(row.archive_year) : null;
   const year = archiveYear && !Number.isNaN(archiveYear) ? archiveYear : null;
+  const lead = resolveStoredOrSeasonLead(row.project_lead, year || currentArchiveEndYear());
   return {
     ...row,
     gallery: parseGallery(row.gallery),
     archive_year: year,
     archive_season_label: year ? archiveSeasonLabel(year) : null,
-    project_lead: row.project_lead ? String(row.project_lead).trim() : null,
+    project_lead: lead,
   };
 }
 
@@ -259,10 +281,16 @@ async function createProject({ titre, description, image, gallery, archive_year,
     archive_year != null && archive_year !== ''
       ? Number(archive_year) || null
       : null;
-  const lead =
+  let lead =
     project_lead != null && String(project_lead).trim() !== ''
       ? String(project_lead).trim().slice(0, 500)
       : null;
+  if (!lead && archive) {
+    lead = projectLeadForEndYear(archive);
+  }
+  if (!lead && !archive) {
+    lead = projectLeadForEndYear(currentArchiveEndYear());
+  }
   const [result] = await pool.execute(
     'INSERT INTO project_catalog (titre, description, image, gallery, archive_year, project_lead) VALUES (?, ?, ?, ?, ?, ?)',
     [
@@ -1129,7 +1157,10 @@ async function listPublishedRealizations() {
         project_gallery: parseGallery(a.project_gallery),
         archive_year: archiveYear,
         archive_season_label: archiveYear ? archiveSeasonLabel(archiveYear) : null,
-        project_lead: a.project_lead ? String(a.project_lead).trim() : null,
+        project_lead: resolveStoredOrSeasonLead(
+          a.project_lead,
+          archiveYear || currentArchiveEndYear()
+        ),
         published_at: a.published_at,
         groups: [group],
       });
@@ -1189,4 +1220,5 @@ module.exports = {
   rejectAssignmentStep,
   listPendingStepValidations,
   recomputeProgress,
+  resolveMemberIdByEmail,
 };

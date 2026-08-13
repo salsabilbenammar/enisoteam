@@ -29,11 +29,7 @@ function clearSession() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => readCachedUser());
-  const [loading, setLoading] = useState(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    // Si déjà une session en cache, pas besoin de bloquer l'UI
-    return !!token && !readCachedUser();
-  });
+  const [loading, setLoading] = useState(() => !!localStorage.getItem(TOKEN_KEY));
 
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);

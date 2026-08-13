@@ -146,9 +146,14 @@ export default function Navbar() {
             )
           )}
           {isAdmin ? (
-            <Link to="/admin" className={styles.cta} onClick={closeAll}>
-              Admin
-            </Link>
+            <>
+              <Link to="/admin" className={styles.cta} onClick={closeAll}>
+                Admin
+              </Link>
+              <button type="button" className={styles.ctaBtn} onClick={handleLogout}>
+                {user?.nom?.split(' ')[0] || 'Admin'} · Déconnexion
+              </button>
+            </>
           ) : isMember ? (
             <>
               <NavLink

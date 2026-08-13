@@ -142,6 +142,7 @@ async function create(req, res, next) {
       inscription_ouverte,
       payante,
       prix,
+      fifo_paiement,
       champs_personnalises,
     } = req.body;
     if (!titre || !description || !date) {
@@ -164,6 +165,7 @@ async function create(req, res, next) {
       inscription_ouverte: parseOpen(inscription_ouverte),
       payante: isPayante,
       prix,
+      fifo_paiement: isPayante && parseOpen(fifo_paiement),
       champs_personnalises: parseJsonBody(champs_personnalises, []),
     });
     res.status(201).json(row);
@@ -184,6 +186,7 @@ async function update(req, res, next) {
       inscription_ouverte,
       payante,
       prix,
+      fifo_paiement,
       champs_personnalises,
     } = req.body;
     if (!titre || !description || !date) {
@@ -206,6 +209,7 @@ async function update(req, res, next) {
       inscription_ouverte: parseOpen(inscription_ouverte),
       payante: isPayante,
       prix,
+      fifo_paiement: isPayante && parseOpen(fifo_paiement),
       champs_personnalises: parseJsonBody(champs_personnalises, []),
     });
     if (!row) return res.status(404).json({ message: 'Formation introuvable.' });
@@ -259,6 +263,31 @@ async function listRegistrations(req, res, next) {
   }
 }
 
+async function setRegistrationPayment(req, res, next) {
+  try {
+    const training = await trainingModel.getById(req.params.id);
+    if (!training) return res.status(404).json({ message: 'Formation introuvable.' });
+    if (!training.payante) {
+      return res.status(400).json({ message: 'Cette formation n’est pas payante.' });
+    }
+    const validated =
+      req.body.paiement_valide === true ||
+      req.body.paiement_valide === 1 ||
+      req.body.paiement_valide === '1' ||
+      req.body.paiement_valide === 'true';
+    const row = await regModel.setTrainingRegistrationPayment(
+      req.params.registrationId,
+      training.id,
+      validated
+    );
+    if (!row) return res.status(404).json({ message: 'Inscription introuvable.' });
+    res.json(row);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
 async function remove(req, res, next) {
   try {
     const ok = await trainingModel.remove(req.params.id);
@@ -278,4 +307,5 @@ module.exports = {
   setInscriptionOpen,
   register,
   listRegistrations,
+  setRegistrationPayment,
 };

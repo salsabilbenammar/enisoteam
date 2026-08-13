@@ -66,6 +66,25 @@
   color: var(--text);
 }
 
+.workspaceLink {
+  margin-top: 0.65rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  color: #6ee7b7 !important;
+  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid rgba(110, 231, 183, 0.35);
+  background: rgba(110, 231, 183, 0.08);
+}
+
+.workspaceLink:hover {
+  background: rgba(110, 231, 183, 0.16) !important;
+  color: #a7f3d0 !important;
+}
+
 .active {
   background: rgba(77, 163, 255, 0.14) !important;
   color: var(--accent-bright) !important;

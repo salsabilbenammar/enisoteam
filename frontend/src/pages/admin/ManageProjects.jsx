@@ -8,7 +8,9 @@ import {
   archiveEndYearFromDate,
   currentArchiveEndYear,
   currentArchiveSeasonLabel,
+  currentProjectLead,
   formatArchiveSeason,
+  projectLeadForEndYear,
   seasonLabelForItem,
 } from '../../utils/archiveProjects';
 
@@ -17,7 +19,7 @@ const emptyProject = { titre: '', description: '', image: null, existingImage: n
 const emptyRealizedProject = () => ({
   ...emptyProject,
   archive_year: String(currentArchiveEndYear()),
-  project_lead: '',
+  project_lead: currentProjectLead(),
 });
 
 function SupervisorFields({ values, onChange }) {
@@ -447,7 +449,8 @@ export default function ManageProjects() {
       existingImage: p.image || null,
       preview: p.image ? assetUrl(p.image) : null,
       archive_year: p.archive_year ? String(p.archive_year) : String(currentArchiveEndYear()),
-      project_lead: p.project_lead || '',
+      project_lead:
+        p.project_lead || projectLeadForEndYear(p.archive_year || currentArchiveEndYear()),
     });
     scrollToEditor();
   };
@@ -873,16 +876,16 @@ export default function ManageProjects() {
                   </small>
                 </div>
                 <div className="form-group">
-                  <label>Réalisé par</label>
+                  <label>Responsable projet</label>
                   <input
                     value={realizedForm.project_lead || ''}
                     onChange={(e) =>
                       setRealizedForm({ ...realizedForm, project_lead: e.target.value })
                     }
-                    placeholder="Ex. : Prénom Nom, Prénom Nom…"
+                    placeholder="Ex. : Dhouha Kmala"
                   />
                   <small className={styles.fieldHint}>
-                    Membres ou équipe ayant réalisé ce projet (séparez les noms par des virgules).
+                    Selon le bureau de la saison (cette année : {currentProjectLead()}).
                   </small>
                 </div>
                 <div className="form-group">
@@ -945,8 +948,11 @@ export default function ManageProjects() {
                   </div>
                   <div className={styles.catalogBody}>
                     <h3>{p.titre}</h3>
-                    {p.project_lead ? (
-                      <p className={styles.metaLine}>Réalisé par : {p.project_lead}</p>
+                    {p.project_lead || projectLeadForEndYear(p.archive_year) ? (
+                      <p className={styles.metaLine}>
+                        Responsable projet :{' '}
+                        {p.project_lead || projectLeadForEndYear(p.archive_year)}
+                      </p>
                     ) : null}
                     <p>
                       {p.description?.slice(0, 160)}

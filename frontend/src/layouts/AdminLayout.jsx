@@ -1,5 +1,7 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import styles from './AdminLayout.module.css';
 
 const links = [
@@ -20,6 +22,14 @@ const links = [
 export default function AdminLayout() {
   const { admin, logout } = useAuth();
   const navigate = useNavigate();
+  const [hasMyProject, setHasMyProject] = useState(false);
+
+  useEffect(() => {
+    api
+      .get('/projects/my-assignments')
+      .then((res) => setHasMyProject(Array.isArray(res.data) && res.data.length > 0))
+      .catch(() => setHasMyProject(false));
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -47,6 +57,11 @@ export default function AdminLayout() {
               {l.label}
             </NavLink>
           ))}
+          {hasMyProject ? (
+            <Link to="/mes-projets" className={styles.workspaceLink}>
+              Mon projet (étapes)
+            </Link>
+          ) : null}
         </nav>
         <div className={styles.user}>
           <p>{admin?.nom}</p>

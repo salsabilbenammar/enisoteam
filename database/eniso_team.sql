@@ -142,6 +142,7 @@ CREATE TABLE `trainings` (
   `inscription_ouverte`  TINYINT(1)                                NOT NULL DEFAULT 0,
   `payante`              TINYINT(1)                                NOT NULL DEFAULT 0,
   `prix`                 VARCHAR(50)                               DEFAULT NULL,
+  `fifo_paiement`        TINYINT(1)                                NOT NULL DEFAULT 0,
   `created_at`           TIMESTAMP                                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_trainings_date` (`date`)
