@@ -10,6 +10,8 @@ const links = [
   { to: '/admin/trainings', label: 'Formations' },
   { to: '/admin/events', label: 'Événements' },
   { to: '/admin/recruitment', label: 'Recrutement' },
+  { to: '/admin/finance', label: 'Finance' },
+  { to: '/admin/projects', label: 'Projets' },
   { to: '/admin/rh', label: 'Coin RH' },
   { to: '/admin/club-info', label: 'À propos' },
   { to: '/admin/contact', label: 'Contact & réseaux' },

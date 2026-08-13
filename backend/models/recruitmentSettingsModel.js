@@ -51,6 +51,30 @@ Facebook : [Facebook]
 
 — ENISO Team`;
 
+const DEFAULT_MAIL_MEDIA_CONFIRMATION_CORPS = `Bonjour [Nom],
+
+Nous avons bien reçu votre candidature Media Babies.
+
+Merci de choisir dès maintenant l'un des créneaux d'entretien disponibles via ce lien sécurisé :
+
+[Lien]
+
+Une fois votre créneau confirmé, vous recevrez un email de confirmation avec la date, l'heure et le lieu.
+
+Merci.
+
+— ENISO Team · Media Babies`;
+
+const DEFAULT_MAIL_MEDIA_REUSSITE_CORPS = `Bonjour [Nom],
+
+Félicitations ! Vous avez réussi votre entretien Media Babies.
+
+Bienvenue dans l'aventure Media Babies avec l'ENISO Team. Nous reviendrons vers vous très bientôt pour la suite.
+
+À très bientôt,
+
+— ENISO Team · Media Babies`;
+
 const DEFAULTS = {
   id: 1,
   montant_paiement: '30 DT',
@@ -63,6 +87,7 @@ const DEFAULTS = {
   infos_entretien:
     "Merci d'arriver 10 minutes avant l'heure prévue. Apportez votre carte d'étudiant.",
   candidature_ouverte: 0,
+  candidature_ouverte_media: 0,
   lien_messenger: '',
   lien_facebook: '',
   mail_confirmation_sujet: 'Confirmation de candidature',
@@ -71,6 +96,10 @@ const DEFAULTS = {
   mail_reussite_corps: DEFAULT_MAIL_REUSSITE_CORPS,
   mail_paiement_sujet: 'Paiement confirmé — vos identifiants membre ENISO Team',
   mail_paiement_corps: DEFAULT_MAIL_PAIEMENT_CORPS,
+  mail_media_confirmation_sujet: 'Confirmation de candidature — Media Babies',
+  mail_media_confirmation_corps: DEFAULT_MAIL_MEDIA_CONFIRMATION_CORPS,
+  mail_media_reussite_sujet: 'Félicitations — entretien Media Babies réussi',
+  mail_media_reussite_corps: DEFAULT_MAIL_MEDIA_REUSSITE_CORPS,
 };
 
 function normalize(row) {
@@ -84,6 +113,8 @@ function normalize(row) {
     ...DEFAULTS,
     ...row,
     candidature_ouverte: Number(row?.candidature_ouverte) === 1 || row?.candidature_ouverte === true,
+    candidature_ouverte_media:
+      Number(row?.candidature_ouverte_media) === 1 || row?.candidature_ouverte_media === true,
     lien_messenger: row?.lien_messenger || '',
     lien_facebook: row?.lien_facebook || '',
     mail_confirmation_sujet:
@@ -96,6 +127,14 @@ function normalize(row) {
       ? row?.mail_paiement_sujet || DEFAULTS.mail_paiement_sujet
       : DEFAULTS.mail_paiement_sujet,
     mail_paiement_corps: paiementHasCreds ? mailPaiementCorps : DEFAULTS.mail_paiement_corps,
+    mail_media_confirmation_sujet:
+      row?.mail_media_confirmation_sujet || DEFAULTS.mail_media_confirmation_sujet,
+    mail_media_confirmation_corps:
+      row?.mail_media_confirmation_corps || DEFAULTS.mail_media_confirmation_corps,
+    mail_media_reussite_sujet:
+      row?.mail_media_reussite_sujet || DEFAULTS.mail_media_reussite_sujet,
+    mail_media_reussite_corps:
+      row?.mail_media_reussite_corps || DEFAULTS.mail_media_reussite_corps,
   };
 }
 
@@ -147,6 +186,10 @@ async function update(data) {
     lieu_defaut: data.lieu_defaut ?? current.lieu_defaut,
     infos_entretien: data.infos_entretien ?? current.infos_entretien,
     candidature_ouverte: asBool01(data.candidature_ouverte, current.candidature_ouverte),
+    candidature_ouverte_media: asBool01(
+      data.candidature_ouverte_media,
+      current.candidature_ouverte_media
+    ),
     lien_messenger: String(data.lien_messenger ?? current.lien_messenger ?? '').trim(),
     lien_facebook: String(data.lien_facebook ?? current.lien_facebook ?? '').trim(),
     mail_confirmation_sujet: String(
@@ -165,18 +208,36 @@ async function update(data) {
       .trim()
       .slice(0, 255),
     mail_paiement_corps: String(data.mail_paiement_corps ?? current.mail_paiement_corps),
+    mail_media_confirmation_sujet: String(
+      data.mail_media_confirmation_sujet ?? current.mail_media_confirmation_sujet
+    )
+      .trim()
+      .slice(0, 255),
+    mail_media_confirmation_corps: String(
+      data.mail_media_confirmation_corps ?? current.mail_media_confirmation_corps
+    ),
+    mail_media_reussite_sujet: String(
+      data.mail_media_reussite_sujet ?? current.mail_media_reussite_sujet
+    )
+      .trim()
+      .slice(0, 255),
+    mail_media_reussite_corps: String(
+      data.mail_media_reussite_corps ?? current.mail_media_reussite_corps
+    ),
   };
 
   try {
     await pool.execute(
       `INSERT INTO recruitment_settings
         (id, montant_paiement, delai_paiement, tresorier_nom, tresorier_contact,
-         infos_paiement, lieu_defaut, infos_entretien, candidature_ouverte,
+         infos_paiement, lieu_defaut, infos_entretien, candidature_ouverte, candidature_ouverte_media,
          lien_messenger, lien_facebook,
          mail_confirmation_sujet, mail_confirmation_corps,
          mail_reussite_sujet, mail_reussite_corps,
-         mail_paiement_sujet, mail_paiement_corps)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         mail_paiement_sujet, mail_paiement_corps,
+         mail_media_confirmation_sujet, mail_media_confirmation_corps,
+         mail_media_reussite_sujet, mail_media_reussite_corps)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
         montant_paiement = VALUES(montant_paiement),
         delai_paiement = VALUES(delai_paiement),
@@ -186,6 +247,7 @@ async function update(data) {
         lieu_defaut = VALUES(lieu_defaut),
         infos_entretien = VALUES(infos_entretien),
         candidature_ouverte = VALUES(candidature_ouverte),
+        candidature_ouverte_media = VALUES(candidature_ouverte_media),
         lien_messenger = VALUES(lien_messenger),
         lien_facebook = VALUES(lien_facebook),
         mail_confirmation_sujet = VALUES(mail_confirmation_sujet),
@@ -193,7 +255,11 @@ async function update(data) {
         mail_reussite_sujet = VALUES(mail_reussite_sujet),
         mail_reussite_corps = VALUES(mail_reussite_corps),
         mail_paiement_sujet = VALUES(mail_paiement_sujet),
-        mail_paiement_corps = VALUES(mail_paiement_corps)`,
+        mail_paiement_corps = VALUES(mail_paiement_corps),
+        mail_media_confirmation_sujet = VALUES(mail_media_confirmation_sujet),
+        mail_media_confirmation_corps = VALUES(mail_media_confirmation_corps),
+        mail_media_reussite_sujet = VALUES(mail_media_reussite_sujet),
+        mail_media_reussite_corps = VALUES(mail_media_reussite_corps)`,
       [
         payload.montant_paiement,
         payload.delai_paiement,
@@ -203,6 +269,7 @@ async function update(data) {
         payload.lieu_defaut,
         payload.infos_entretien,
         payload.candidature_ouverte,
+        payload.candidature_ouverte_media,
         payload.lien_messenger,
         payload.lien_facebook,
         payload.mail_confirmation_sujet,
@@ -211,6 +278,10 @@ async function update(data) {
         payload.mail_reussite_corps,
         payload.mail_paiement_sujet,
         payload.mail_paiement_corps,
+        payload.mail_media_confirmation_sujet,
+        payload.mail_media_confirmation_corps,
+        payload.mail_media_reussite_sujet,
+        payload.mail_media_reussite_corps,
       ]
     );
   } catch (err) {
@@ -249,12 +320,20 @@ async function isOpen() {
   return !!settings.candidature_ouverte;
 }
 
+async function isOpenMedia() {
+  const settings = await get();
+  return !!settings.candidature_ouverte_media;
+}
+
 module.exports = {
   get,
   update,
   isOpen,
+  isOpenMedia,
   DEFAULTS,
   DEFAULT_MAIL_CONFIRMATION_CORPS,
   DEFAULT_MAIL_REUSSITE_CORPS,
   DEFAULT_MAIL_PAIEMENT_CORPS,
+  DEFAULT_MAIL_MEDIA_CONFIRMATION_CORPS,
+  DEFAULT_MAIL_MEDIA_REUSSITE_CORPS,
 };

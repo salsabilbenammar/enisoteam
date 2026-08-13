@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const { STATUSES } = require('../services/recruitmentMailTemplates');
 const { isBookable } = require('./recruitmentSlotModel');
+const { normalizeStream } = require('../utils/recruitmentStreams');
 
 async function createHistory(candidateId, oldStatut, newStatut, note = null) {
   await pool.execute(
@@ -11,12 +12,13 @@ async function createHistory(candidateId, oldStatut, newStatut, note = null) {
 }
 
 async function create(data) {
+  const stream = normalizeStream(data.stream);
   const [result] = await pool.execute(
     `INSERT INTO recruitment_candidates
       (nom, prenom, email, telephone, facebook_link, filiere, annee, adresse, photo_path,
        motivation, motivation_robotics, domaine_interet, unique_about, piece_jointe_path,
-       competences, disponibilites, message, statut)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'en_attente')`,
+       competences, disponibilites, message, statut, stream)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'en_attente', ?)`,
     [
       data.nom,
       data.prenom,
@@ -35,6 +37,7 @@ async function create(data) {
       data.competences || null,
       data.disponibilites || null,
       data.message || null,
+      stream,
     ]
   );
   await createHistory(result.insertId, null, 'en_attente', 'Candidature reçue');
@@ -49,6 +52,33 @@ async function findById(id) {
      LEFT JOIN recruitment_slots s ON s.id = c.interview_slot_id
      WHERE c.id = ?`,
     [id]
+  );
+  return rows[0] || null;
+}
+
+/** Dernier candidat (hors Media) pour un email — privilégie paiement_en_attente. */
+async function findByEmail(email) {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase();
+  if (!normalized) return null;
+  const [rows] = await pool.execute(
+    `SELECT c.*,
+            s.date_slot, s.heure_slot, s.lieu AS slot_lieu, s.max_places
+     FROM recruitment_candidates c
+     LEFT JOIN recruitment_slots s ON s.id = c.interview_slot_id
+     WHERE LOWER(TRIM(c.email)) = ?
+       AND (c.stream IS NULL OR c.stream = 'general' OR c.stream = '')
+     ORDER BY
+       CASE c.statut
+         WHEN 'paiement_en_attente' THEN 0
+         WHEN 'accepte' THEN 1
+         WHEN 'paiement_confirme' THEN 2
+         ELSE 3
+       END,
+       c.id DESC
+     LIMIT 1`,
+    [normalized]
   );
   return rows[0] || null;
 }
@@ -76,6 +106,7 @@ async function list({
   statut = '',
   date_slot = '',
   heure_slot = '',
+  stream = '',
   page = 1,
   limit = 10,
 } = {}) {
@@ -93,6 +124,10 @@ async function list({
   if (statut && STATUSES.includes(statut)) {
     where.push('c.statut = ?');
     params.push(statut);
+  }
+  if (stream) {
+    where.push('c.stream = ?');
+    params.push(normalizeStream(stream));
   }
   if (date_slot && /^\d{4}-\d{2}-\d{2}$/.test(String(date_slot))) {
     where.push('s.date_slot = ?');
@@ -242,6 +277,16 @@ async function bookSlot(candidateId, slotId) {
       throw err;
     }
 
+    const candidateStream = normalizeStream(candidate.stream);
+    const slotStream = normalizeStream(slot.stream);
+    if (candidateStream !== slotStream) {
+      const err = new Error(
+        'Ce créneau n’appartient pas au même recrutement que votre candidature.'
+      );
+      err.status = 400;
+      throw err;
+    }
+
     await conn.execute(
       `UPDATE recruitment_candidates
        SET interview_slot_id = ?, booked_at = NOW(), statut = 'entretien_confirme'
@@ -277,11 +322,15 @@ async function remove(id) {
   return result.affectedRows > 0;
 }
 
-async function getStats() {
+async function getStats(stream = '') {
+  const where = stream ? 'WHERE stream = ?' : '';
+  const params = stream ? [normalizeStream(stream)] : [];
   const [rows] = await pool.execute(
     `SELECT statut, COUNT(*) AS total
      FROM recruitment_candidates
-     GROUP BY statut`
+     ${where}
+     GROUP BY statut`,
+    params
   );
   const byStatus = Object.fromEntries(rows.map((r) => [r.statut, Number(r.total)]));
   const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
@@ -345,6 +394,7 @@ async function markAbsent(id) {
 module.exports = {
   create,
   findById,
+  findByEmail,
   findByToken,
   list,
   updateStatus,

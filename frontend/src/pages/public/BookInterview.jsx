@@ -142,6 +142,11 @@ export default function BookInterview() {
               disponible.
             </p>
           )}
+          <p className={styles.hint}>
+            Ce lien sert uniquement à réserver votre entretien. L’accès à l’espace membre
+            (projets, cotisations, Coin RH) sera disponible après paiement, avec les
+            identifiants envoyés par email.
+          </p>
         </header>
 
         {error && <div className="alert alert-error">{error}</div>}

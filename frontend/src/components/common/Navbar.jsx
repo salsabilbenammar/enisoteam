@@ -10,6 +10,9 @@ const BASE_LINKS = [
   { to: '/board', label: 'Bureau' },
   { to: '/trainings', label: 'Formations' },
   { to: '/events', label: 'Événements' },
+  { to: '/projets', label: 'Projets' },
+  { to: '/mes-projets', label: 'Mes projets', membersOnly: true },
+  { to: '/selection-projets', label: 'Sélection projets', membersOnly: true },
   { to: '/announcements', label: 'Annonces' },
   { to: '/rh', label: 'Coin RH', membersOnly: true },
 ];
@@ -18,6 +21,8 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [loginMenuOpen, setLoginMenuOpen] = useState(false);
   const [candidatureOpen, setCandidatureOpen] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [openForms, setOpenForms] = useState([]);
   const loginMenuRef = useRef(null);
   const { isAdmin, isMember, user, logout } = useAuth();
   const navigate = useNavigate();
@@ -25,9 +30,27 @@ export default function Navbar() {
   useEffect(() => {
     api
       .get('/recruitment/status')
-      .then((res) => setCandidatureOpen(!!res.data.candidature_ouverte))
-      .catch(() => setCandidatureOpen(false));
+      .then((res) => {
+        setCandidatureOpen(!!res.data.candidature_ouverte);
+        setMediaOpen(!!res.data.candidature_ouverte_media);
+      })
+      .catch(() => {
+        setCandidatureOpen(false);
+        setMediaOpen(false);
+      });
   }, []);
+
+  useEffect(() => {
+    if (!isMember) {
+      setOpenForms([]);
+      return undefined;
+    }
+    api
+      .get('/finance/offers/open')
+      .then((res) => setOpenForms(res.data || []))
+      .catch(() => setOpenForms([]));
+    return undefined;
+  }, [isMember]);
 
   useEffect(() => {
     if (!loginMenuOpen) return undefined;
@@ -48,9 +71,18 @@ export default function Navbar() {
   }, [loginMenuOpen]);
 
   const links = [
-    ...BASE_LINKS.slice(0, 6),
+    ...BASE_LINKS.filter((l) => !l.membersOnly),
     ...(candidatureOpen ? [{ to: '/candidature', label: 'Candidature' }] : []),
-    BASE_LINKS[6],
+    ...(mediaOpen ? [{ to: '/candidature-media', label: 'Media Babies' }] : []),
+    // Espaces membres uniquement après connexion (identifiants reçus post-paiement)
+    ...(isMember ? BASE_LINKS.filter((l) => l.membersOnly) : []),
+    ...(isMember
+      ? openForms.map((f) => ({
+          external: true,
+          href: f.external_url,
+          label: f.titre,
+        }))
+      : []),
   ];
 
   const closeAll = () => {
@@ -90,19 +122,29 @@ export default function Navbar() {
         </button>
 
         <nav className={`${styles.nav} ${open ? styles.open : ''}`}>
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.to === '/'}
-              className={({ isActive }) => (isActive ? styles.active : undefined)}
-              onClick={closeAll}
-              title={l.membersOnly && !isMember ? 'Réservé aux membres inscrits' : undefined}
-            >
-              {l.label}
-              {l.membersOnly && !isMember ? ' 🔒' : ''}
-            </NavLink>
-          ))}
+          {links.map((l) =>
+            l.external ? (
+              <a
+                key={l.href + l.label}
+                href={l.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={closeAll}
+              >
+                {l.label}
+              </a>
+            ) : (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end={l.to === '/'}
+                className={({ isActive }) => (isActive ? styles.active : undefined)}
+                onClick={closeAll}
+              >
+                {l.label}
+              </NavLink>
+            )
+          )}
           {isAdmin ? (
             <Link to="/admin" className={styles.cta} onClick={closeAll}>
               Admin

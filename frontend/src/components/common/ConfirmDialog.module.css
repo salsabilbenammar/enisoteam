@@ -16,6 +16,11 @@
   overflow: hidden;
   padding: 2rem 1.75rem 1.6rem;
   border-radius: 20px;
+  text-align: center;
+  animation: dialogIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.danger {
   border: 1px solid rgba(255, 120, 120, 0.28);
   background:
     radial-gradient(circle at 50% -10%, rgba(255, 90, 90, 0.22), transparent 55%),
@@ -24,15 +29,72 @@
     0 28px 80px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(255, 255, 255, 0.04) inset,
     0 0 60px rgba(239, 68, 68, 0.12);
-  text-align: center;
-  animation: dialogIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.danger .glow {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.25), transparent 70%);
+}
+
+.danger .icon {
+  background: linear-gradient(145deg, rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.08));
+  border-color: rgba(248, 113, 113, 0.45);
+  box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.08), 0 10px 30px rgba(239, 68, 68, 0.2);
+}
+
+.danger .icon svg {
+  fill: #fca5a5;
+}
+
+.danger .confirm {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  box-shadow: 0 10px 28px rgba(239, 68, 68, 0.35);
+}
+
+.danger .confirm:hover {
+  background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+  box-shadow: 0 14px 34px rgba(239, 68, 68, 0.45);
+}
+
+.primary {
+  border: 1px solid rgba(77, 163, 255, 0.35);
+  background:
+    radial-gradient(circle at 50% -10%, rgba(34, 211, 238, 0.18), transparent 55%),
+    linear-gradient(165deg, #152844 0%, #0b1a30 100%);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 60px rgba(34, 211, 238, 0.1);
+}
+
+.primary .glow {
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.22), transparent 70%);
+}
+
+.primary .icon {
+  background: linear-gradient(145deg, rgba(34, 211, 238, 0.28), rgba(37, 99, 235, 0.1));
+  border-color: rgba(77, 163, 255, 0.45);
+  box-shadow: 0 0 0 8px rgba(34, 211, 238, 0.08), 0 10px 30px rgba(37, 99, 235, 0.22);
+  animation: iconPulsePrimary 1.8s ease-in-out infinite;
+}
+
+.primary .icon svg {
+  fill: #67e8f9;
+}
+
+.primary .confirm {
+  background: linear-gradient(135deg, #2563eb 0%, #0891b2 100%);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35);
+}
+
+.primary .confirm:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+  box-shadow: 0 14px 34px rgba(34, 211, 238, 0.35);
 }
 
 .glow {
   position: absolute;
   inset: auto 20% -40% 20%;
   height: 55%;
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.25), transparent 70%);
   pointer-events: none;
   filter: blur(18px);
 }
@@ -45,16 +107,12 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: linear-gradient(145deg, rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.08));
-  border: 1px solid rgba(248, 113, 113, 0.45);
-  box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.08), 0 10px 30px rgba(239, 68, 68, 0.2);
-  animation: iconPulse 1.8s ease-in-out infinite;
+  border: 1px solid;
 }
 
 .icon svg {
   width: 1.7rem;
   height: 1.7rem;
-  fill: #fca5a5;
 }
 
 .title {
@@ -93,7 +151,8 @@
   font-weight: 700;
   letter-spacing: 0.03em;
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .cancel {
@@ -109,15 +168,7 @@
 }
 
 .confirm {
-  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
   color: #fff;
-  box-shadow: 0 10px 28px rgba(239, 68, 68, 0.35);
-}
-
-.confirm:hover {
-  background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
-  box-shadow: 0 14px 34px rgba(239, 68, 68, 0.45);
-  transform: translateY(-1px);
 }
 
 .confirm:active,
@@ -145,13 +196,13 @@
   }
 }
 
-@keyframes iconPulse {
+@keyframes iconPulsePrimary {
   0%,
   100% {
-    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.08), 0 10px 30px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 0 8px rgba(34, 211, 238, 0.08), 0 10px 30px rgba(37, 99, 235, 0.22);
   }
   50% {
-    box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.14), 0 12px 34px rgba(239, 68, 68, 0.28);
+    box-shadow: 0 0 0 12px rgba(34, 211, 238, 0.14), 0 12px 34px rgba(34, 211, 238, 0.28);
   }
 }
 

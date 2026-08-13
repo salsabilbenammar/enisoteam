@@ -42,6 +42,11 @@ router.post(
   requireAdmin,
   recruitmentController.sendSuccessPayment
 );
+router.post(
+  '/candidates/:id/send-payment-access',
+  requireAdmin,
+  recruitmentController.sendPaymentAccessMail
+);
 
 router.post('/invitations', requireAdmin, recruitmentController.scheduleInvitations);
 router.post('/payment-requests', requireAdmin, recruitmentController.schedulePaymentRequests);

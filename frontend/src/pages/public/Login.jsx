@@ -55,6 +55,12 @@ export default function Login() {
       }
       navigate(from);
     } catch (err) {
+      if (!err.response) {
+        setError(
+          'Impossible de joindre le serveur. Vérifiez que le backend est démarré (port 5000).'
+        );
+        return;
+      }
       setError(err.response?.data?.message || 'Connexion impossible.');
     } finally {
       setSubmitting(false);

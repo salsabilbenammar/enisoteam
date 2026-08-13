@@ -95,7 +95,11 @@ function buildInterviewConfirmationEmail(candidate, slot, settings) {
   const heure = String(slot.heure_slot).slice(0, 5);
   const lieu = slot.lieu || settings?.lieu_defaut || 'ENISO';
   const infos = settings?.infos_entretien || '';
-  const subject = 'Confirmation de votre entretien';
+  const isMedia = String(candidate?.stream || '') === 'media_babies';
+  const brand = isMedia ? 'ENISO Team · Media Babies' : 'ENISO Team';
+  const subject = isMedia
+    ? 'Confirmation de votre entretien Media Babies'
+    : 'Confirmation de votre entretien';
   const text = `Bonjour ${nom},
 
 Votre entretien est confirmé.
@@ -106,7 +110,7 @@ Lieu : ${lieu}
 
 ${infos}
 
-— ENISO Team`;
+— ${brand}`;
   return { subject, text };
 }
 
@@ -214,6 +218,30 @@ Lien de connexion : ${loginUrl}
   };
 }
 
+function buildMediaSuccessEmail(candidate, settings = {}) {
+  const nom = `${candidate.prenom} ${candidate.nom}`.trim();
+  const vars = { Nom: nom };
+  const subject =
+    settings.mail_media_reussite_sujet || 'Félicitations — entretien Media Babies réussi';
+  const bodyTemplate =
+    settings.mail_media_reussite_corps ||
+    `Bonjour [Nom],
+
+Félicitations ! Vous avez réussi votre entretien Media Babies.
+
+Bienvenue dans l'aventure Media Babies avec l'ENISO Team.
+
+À très bientôt,
+
+— ENISO Team · Media Babies`;
+  const text = applyMailPlaceholders(bodyTemplate, vars);
+  return {
+    subject: applyMailPlaceholders(subject, vars),
+    text,
+    html: textToHtml(text),
+  };
+}
+
 function formatDateFr(value) {
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
@@ -229,6 +257,7 @@ module.exports = {
   buildInterviewConfirmationEmail,
   buildPaymentRequestEmail,
   buildSuccessPaymentEmail,
+  buildMediaSuccessEmail,
   buildPaymentConfirmedEmail,
   formatDateFr,
 };

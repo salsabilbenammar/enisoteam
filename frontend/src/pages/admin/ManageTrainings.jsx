@@ -4,7 +4,7 @@ import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import FormQuestionPicker from '../../components/admin/FormQuestionPicker';
 import { toApiFields } from '../../data/formQuestionBank';
-import { minSelectableDate } from '../../utils/dateLimits';
+import { defaultDateMin, minSelectableDate } from '../../utils/dateLimits';
 
 const empty = {
   titre: '',
@@ -43,6 +43,7 @@ export default function ManageTrainings() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(empty);
+  const [dateMin, setDateMin] = useState(() => defaultDateMin());
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -67,14 +68,17 @@ export default function ManageTrainings() {
   const reset = () => {
     setForm(empty);
     setEditId(null);
+    setDateMin(defaultDateMin());
   };
 
   const onEdit = (item) => {
     setEditId(item.id);
+    const date = String(item.date).slice(0, 10);
+    setDateMin(minSelectableDate(date));
     setForm({
       titre: item.titre,
       description: item.description,
-      date: String(item.date).slice(0, 10),
+      date,
       formateur: item.formateur || '',
       niveau: item.niveau || 'debutant',
       lien: item.lien || '',
@@ -190,7 +194,7 @@ export default function ManageTrainings() {
               type="date"
               value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
-              min={minSelectableDate(form.date)}
+              min={dateMin}
               required
             />
           </div>

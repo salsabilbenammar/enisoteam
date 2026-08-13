@@ -1,0 +1,521 @@
+.page {
+  padding-bottom: 2rem;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 1.25rem;
+}
+
+.tab {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: rgba(3, 13, 26, 0.35);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tabActive {
+  color: var(--accent-bright);
+  border-color: var(--border-strong);
+  background: linear-gradient(135deg, rgba(77, 163, 255, 0.2), rgba(34, 211, 238, 0.12));
+}
+
+.section {
+  display: grid;
+  gap: 1rem;
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.statCard {
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(7, 26, 51, 0.55);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.statCard span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.statCard strong {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.ok {
+  color: #6ee7b7 !important;
+}
+
+.danger {
+  color: #fca5a5 !important;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.panel {
+  padding: 1.1rem 1.15rem;
+}
+
+.panelStack {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.panel h3,
+.settingsCard h3,
+.chartCard h3,
+.reportHead h2 {
+  margin: 0 0 0.85rem;
+}
+
+.panelGrow {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filters input,
+.filters select {
+  background: rgba(3, 13, 26, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 0.5rem 0.7rem;
+  min-width: 140px;
+}
+
+.exportBtn {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.tableWrap {
+  overflow: auto;
+  padding: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.table th,
+.table td {
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-display);
+}
+
+.meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.st_paye {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+}
+
+.st_en_attente {
+  background: rgba(251, 191, 36, 0.16);
+  color: #fde68a;
+}
+
+.st_en_retard {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+
+.offerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.offerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.offerRow:last-child {
+  border-bottom: none;
+}
+
+.offerLink {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--accent-bright);
+  word-break: break-all;
+  margin-top: 0.25rem;
+}
+
+.offerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.toggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.pullFormsPanel {
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.pullFormsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.pullFormCard {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(3, 13, 26, 0.35);
+}
+
+.pullFormHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.pullFormActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.badgeOk {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+}
+
+.empty {
+  padding: 1.25rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.clamp {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1rem;
+}
+
+.chartCard {
+  padding: 1.1rem;
+  min-height: 280px;
+}
+
+.barChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.65rem;
+  height: 180px;
+  padding-top: 1rem;
+}
+
+.barGroup {
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  height: 100%;
+}
+
+.barPair {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+}
+
+.bar {
+  width: 12px;
+  min-height: 2px;
+  border-radius: 6px 6px 2px 2px;
+}
+
+.barIn {
+  background: linear-gradient(180deg, #6bb8ff, #2563eb);
+}
+
+.barOut {
+  background: linear-gradient(180deg, #fca5a5, #ef4444);
+}
+
+.legendRow {
+  display: flex;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.dotIn,
+.dotOut {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+
+.dotIn {
+  background: #4da3ff;
+}
+
+.dotOut {
+  background: #f87171;
+}
+
+.pieWrap {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.pie {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 10px rgba(3, 13, 26, 0.35);
+}
+
+.pieLegend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.pieLegend li {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.88rem;
+}
+
+.pieLegend span {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.pieLegend em {
+  font-style: normal;
+  color: var(--text-muted);
+}
+
+.emptyChart {
+  color: var(--text-muted);
+  margin: 2rem 0 0;
+}
+
+.settingsCard {
+  max-width: 720px;
+  padding: 1.25rem;
+}
+
+.typeTable {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.typeRow {
+  display: grid;
+  grid-template-columns: 1fr 120px auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(3, 13, 26, 0.3);
+}
+
+.typeRow input[type='number'] {
+  width: 100%;
+  background: rgba(3, 13, 26, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.4rem 0.55rem;
+}
+
+.switchInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .typeRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 18, 0.72);
+  display: grid;
+  place-items: center;
+  z-index: 80;
+  padding: 1rem;
+}
+
+.modal {
+  width: min(720px, 100%);
+  max-height: min(85vh, 900px);
+  overflow: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem;
+  position: relative;
+  box-shadow: var(--shadow);
+}
+
+.close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.logList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+@media (max-width: 960px) {
+  .split,
+  .charts,
+  .pieWrap {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .noPrint,
+  .tabs,
+  :global(.page-header),
+  :global(aside),
+  :global(.alert) {
+    display: none !important;
+  }
+
+  .printArea {
+    display: block !important;
+  }
+
+  .page {
+    background: white;
+    color: black;
+  }
+}

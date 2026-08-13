@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
-import { minSelectableDate } from '../../utils/dateLimits';
+import { defaultDateMin, minSelectableDate } from '../../utils/dateLimits';
 
 const empty = { titre: '', contenu: '', date_publication: '', lien_formulaire: '', image: null };
 
@@ -11,6 +11,7 @@ export default function ManageAnnouncements() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(empty);
+  const [dateMin, setDateMin] = useState(() => defaultDateMin());
   const [editId, setEditId] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -29,14 +30,17 @@ export default function ManageAnnouncements() {
   const reset = () => {
     setForm(empty);
     setEditId(null);
+    setDateMin(defaultDateMin());
   };
 
   const onEdit = (item) => {
     setEditId(item.id);
+    const date_publication = String(item.date_publication).slice(0, 10);
+    setDateMin(minSelectableDate(date_publication));
     setForm({
       titre: item.titre,
       contenu: item.contenu,
-      date_publication: String(item.date_publication).slice(0, 10),
+      date_publication,
       lien_formulaire: item.lien_formulaire || '',
       image: null,
     });
@@ -109,7 +113,7 @@ export default function ManageAnnouncements() {
               type="date"
               value={form.date_publication}
               onChange={(e) => setForm({ ...form, date_publication: e.target.value })}
-              min={minSelectableDate(form.date_publication)}
+              min={dateMin}
               required
             />
           </div>

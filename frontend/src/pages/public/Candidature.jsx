@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
 import styles from './Candidature.module.css';
@@ -28,7 +28,8 @@ const empty = {
   unique_about: '',
 };
 
-export default function Candidature() {
+export default function Candidature({ stream = 'general' }) {
+  const isMedia = stream === 'media_babies';
   const [open, setOpen] = useState(null);
   const [form, setForm] = useState(empty);
   const [photo, setPhoto] = useState(null);
@@ -36,13 +37,18 @@ export default function Candidature() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
 
   useEffect(() => {
     api
       .get('/recruitment/status')
-      .then((res) => setOpen(!!res.data.candidature_ouverte))
+      .then((res) =>
+        setOpen(
+          isMedia ? !!res.data.candidature_ouverte_media : !!res.data.candidature_ouverte
+        )
+      )
       .catch(() => setOpen(false));
-  }, []);
+  }, [isMedia]);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -51,6 +57,8 @@ export default function Candidature() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (submitLock.current || submitting) return;
+
     setError('');
     setSuccess('');
 
@@ -61,9 +69,11 @@ export default function Candidature() {
 
     const data = new FormData();
     Object.entries(form).forEach(([key, value]) => data.append(key, value));
+    data.append('stream', stream);
     data.append('photo', photo);
     if (piece) data.append('piece_jointe', piece);
 
+    submitLock.current = true;
     setSubmitting(true);
     try {
       const { data: res } = await api.post('/recruitment/apply', data);
@@ -74,6 +84,7 @@ export default function Candidature() {
       e.target.reset();
     } catch (err) {
       setError(err.response?.data?.message || 'Submission failed.');
+      submitLock.current = false;
     } finally {
       setSubmitting(false);
     }
@@ -89,8 +100,9 @@ export default function Candidature() {
             <h1>Candidatures fermées</h1>
             <hr className={styles.rule} />
             <p>
-              Les candidatures ENISo Team ne sont pas ouvertes pour le moment. Revenez bientôt ou
-              suivez nos réseaux pour la prochaine campagne de recrutement.
+              {isMedia
+                ? 'Les candidatures Media Babies ne sont pas ouvertes pour le moment. Revenez bientôt.'
+                : 'Les candidatures ENISo Team ne sont pas ouvertes pour le moment. Revenez bientôt ou suivez nos réseaux pour la prochaine campagne de recrutement.'}
             </p>
           </section>
         </div>
@@ -102,38 +114,58 @@ export default function Candidature() {
     <div className={`page ${styles.page}`}>
       <div className={`container ${styles.wrap}`}>
         <section className={styles.introCard}>
-          <h1>Welcome To Our Family!</h1>
-          <hr className={styles.rule} />
-          <p className={styles.announce}>
-            🚀 <strong>Big News from ENISo Team!</strong> 🚀
-          </p>
-          <p>
-            Are you ready to begin an exciting journey and dive into the fascinating world of
-            robotics? 🌟 We&apos;re inviting passionate minds to join our vibrant community — a
-            place where you can{' '}
-            <strong>
-              sharpen your skills, contribute to groundbreaking projects, and feel the thrill of
-              robotics competitions!
-            </strong>{' '}
-            🤖 🏆
-          </p>
-          <p>
-            At ENISo Team, we proudly take part in <strong>prestigious robotics challenges</strong>,
-            pushing the limits of innovation and showcasing our talent on international stages. By
-            joining us, you&apos;ll have the chance to{' '}
-            <strong>create, compete, and leave your mark in the robotics world.</strong> 💡 🌐
-          </p>
-          <p>
-            ✨ We can&apos;t wait to welcome you and share this incredible adventure together. To get
-            started, simply fill out the recruitment form below and bring your passion, creativity,
-            and drive! 💖
-          </p>
-          <p className={styles.motto}>
-            <strong>ENISo Team — One Team, One Dream.</strong> 🌟
-          </p>
-          <p className={styles.cta}>
-            ⬇️ Fill out the form and let&apos;s build the future together! ⬇️
-          </p>
+          {isMedia ? (
+            <>
+              <h1>Media Babies</h1>
+              <hr className={styles.rule} />
+              <p className={styles.announce}>
+                <strong>Rejoignez Media Babies — ENISO Team</strong>
+              </p>
+              <p>
+                Passionné(e) de contenu, de création visuelle ou de communication ? Media Babies
+                est l’espace pour apprendre, créer et donner de la voix aux projets du club.
+              </p>
+              <p className={styles.motto}>
+                <strong>ENISo Team — One Team, One Dream.</strong>
+              </p>
+              <p className={styles.cta}>⬇️ Remplissez le formulaire ci-dessous ⬇️</p>
+            </>
+          ) : (
+            <>
+              <h1>Welcome To Our Family!</h1>
+              <hr className={styles.rule} />
+              <p className={styles.announce}>
+                🚀 <strong>Big News from ENISo Team!</strong> 🚀
+              </p>
+              <p>
+                Are you ready to begin an exciting journey and dive into the fascinating world of
+                robotics? 🌟 We&apos;re inviting passionate minds to join our vibrant community — a
+                place where you can{' '}
+                <strong>
+                  sharpen your skills, contribute to groundbreaking projects, and feel the thrill of
+                  robotics competitions!
+                </strong>{' '}
+                🤖 🏆
+              </p>
+              <p>
+                At ENISo Team, we proudly take part in <strong>prestigious robotics challenges</strong>,
+                pushing the limits of innovation and showcasing our talent on international stages. By
+                joining us, you&apos;ll have the chance to{' '}
+                <strong>create, compete, and leave your mark in the robotics world.</strong> 💡 🌐
+              </p>
+              <p>
+                ✨ We can&apos;t wait to welcome you and share this incredible adventure together. To get
+                started, simply fill out the recruitment form below and bring your passion, creativity,
+                and drive! 💖
+              </p>
+              <p className={styles.motto}>
+                <strong>ENISo Team — One Team, One Dream.</strong> 🌟
+              </p>
+              <p className={styles.cta}>
+                ⬇️ Fill out the form and let&apos;s build the future together! ⬇️
+              </p>
+            </>
+          )}
         </section>
 
         {error && <div className="alert alert-error">{error}</div>}

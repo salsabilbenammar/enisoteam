@@ -2,6 +2,11 @@ const pool = require('../config/db');
 const { sendMail } = require('../services/emailService');
 
 async function enqueue({ candidate_id, email_to, type, subject, body, scheduled_at }) {
+  // Évite d’empiler un 2e mail du même type encore en attente
+  if (candidate_id && type) {
+    await cancelPending(candidate_id, type);
+  }
+
   const [result] = await pool.execute(
     `INSERT INTO recruitment_email_queue
       (candidate_id, email_to, type, subject, body, scheduled_at, statut)
@@ -16,18 +21,42 @@ async function cancelPending(candidate_id, type) {
   if (!candidate_id || !type) return 0;
   const [result] = await pool.execute(
     `UPDATE recruitment_email_queue
-     SET statut = 'cancelled', error = 'Remplacé par un envoi immédiat'
+     SET statut = 'cancelled', error = 'Remplacé par un nouvel envoi'
      WHERE candidate_id = ? AND type = ? AND statut = 'pending'`,
     [candidate_id, type]
   );
   return result.affectedRows;
 }
 
+async function countSent(candidate_id, type) {
+  if (!candidate_id || !type) return 0;
+  const [rows] = await pool.execute(
+    `SELECT COUNT(*) AS n FROM recruitment_email_queue
+     WHERE candidate_id = ? AND type = ? AND statut = 'sent'`,
+    [candidate_id, type]
+  );
+  return Number(rows[0]?.n || 0);
+}
+
 /**
  * Envoie tout de suite — sans passer par statut pending
  * (évite le double envoi avec le cron qui traite la file).
+ * @param {{ skipIfAlreadySent?: boolean }} [options]
  */
-async function sendImmediate({ candidate_id, email_to, type, subject, body, html }) {
+async function sendImmediate(
+  { candidate_id, email_to, type, subject, body, html },
+  options = {}
+) {
+  const { skipIfAlreadySent = false } = options;
+
+  if (skipIfAlreadySent && candidate_id && type) {
+    const already = await countSent(candidate_id, type);
+    if (already > 0) {
+      await cancelPending(candidate_id, type);
+      return { skipped: true, sent: false };
+    }
+  }
+
   await cancelPending(candidate_id, type);
 
   const scheduled_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -87,6 +116,20 @@ async function processDue(limit = 20) {
     const claimed = await claimPending(row.id);
     if (!claimed) continue;
 
+    // Si un mail du même type a déjà été envoyé, annule ce pending
+    if (row.candidate_id && row.type) {
+      const already = await countSent(row.candidate_id, row.type);
+      if (already > 0) {
+        await pool.execute(
+          `UPDATE recruitment_email_queue
+           SET statut = 'cancelled', error = 'Doublon évité (déjà envoyé)'
+           WHERE id = ?`,
+          [row.id]
+        );
+        continue;
+      }
+    }
+
     try {
       await sendMail({ to: row.email_to, subject: row.subject, text: row.body });
       await pool.execute(
@@ -125,4 +168,11 @@ async function list({ page = 1, limit = 20 } = {}) {
   };
 }
 
-module.exports = { enqueue, sendImmediate, processDue, list, cancelPending };
+module.exports = {
+  enqueue,
+  sendImmediate,
+  processDue,
+  list,
+  cancelPending,
+  countSent,
+};

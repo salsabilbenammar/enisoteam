@@ -3,7 +3,7 @@ import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import MailTemplateEditor from '../../components/admin/MailTemplateEditor';
-import { minSelectableDate } from '../../utils/dateLimits';
+import { defaultDateMin } from '../../utils/dateLimits';
 import styles from './ManageRecruitment.module.css';
 
 const STATUS_OPTIONS = [
@@ -21,12 +21,19 @@ const STATUS_OPTIONS = [
 
 const LABEL = Object.fromEntries(STATUS_OPTIONS.filter((s) => s.value).map((s) => [s.value, s.label]));
 
-const PIPELINE = [
+const PIPELINE_GENERAL = [
   { id: 'en_attente', tab: 'candidates', label: 'Reçues' },
   { id: 'entretien_confirme', tab: 'interviews', label: 'Entretiens' },
   { id: 'present_entretien', tab: 'presents', label: 'Présents' },
   { id: 'paiement_en_attente', tab: 'candidates', label: 'Paiement' },
   { id: 'paiement_confirme', tab: 'candidates', label: 'Validés' },
+];
+
+const PIPELINE_MEDIA = [
+  { id: 'en_attente', tab: 'candidates', label: 'Reçues' },
+  { id: 'entretien_confirme', tab: 'interviews', label: 'Entretiens' },
+  { id: 'present_entretien', tab: 'presents', label: 'Présents' },
+  { id: 'accepte', tab: 'candidates', label: 'Réussis' },
 ];
 
 const MAIL_CONFIRM_PLACEHOLDERS = [
@@ -84,6 +91,9 @@ const emptySlot = { date_slot: '', heure_slot: '', max_places: 10, lieu: '' };
 
 export default function ManageRecruitment() {
   const confirm = useConfirm();
+  const [stream, setStream] = useState('general');
+  const isMedia = stream === 'media_babies';
+  const pipeline = isMedia ? PIPELINE_MEDIA : PIPELINE_GENERAL;
   const [tab, setTab] = useState('candidates');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -103,6 +113,7 @@ export default function ManageRecruitment() {
 
   const [slots, setSlots] = useState([]);
   const [slotForm, setSlotForm] = useState(emptySlot);
+  const [slotDateMin] = useState(() => defaultDateMin());
   const [schedule, setSchedule] = useState([]);
   const [orgDate, setOrgDate] = useState('');
   const [orgTime, setOrgTime] = useState('');
@@ -121,6 +132,7 @@ export default function ManageRecruitment() {
     const st = opts.statut ?? statut;
     const d = opts.date_slot !== undefined ? opts.date_slot : filterDate;
     const t = opts.heure_slot !== undefined ? opts.heure_slot : filterTime;
+    const activeStream = opts.stream ?? stream;
     const { data } = await api.get('/recruitment/candidates', {
       params: {
         page: p,
@@ -129,6 +141,7 @@ export default function ManageRecruitment() {
         statut: st || undefined,
         date_slot: d || undefined,
         heure_slot: t || undefined,
+        stream: activeStream,
       },
     });
     setItems(data.items);
@@ -137,13 +150,17 @@ export default function ManageRecruitment() {
     setPages(data.pages);
   };
 
-  const loadSlots = async () => {
-    const { data } = await api.get('/recruitment/slots');
+  const loadSlots = async (activeStream = stream) => {
+    const { data } = await api.get('/recruitment/slots', {
+      params: { stream: activeStream },
+    });
     setSlots(data);
   };
 
-  const loadSchedule = async () => {
-    const { data } = await api.get('/recruitment/schedule');
+  const loadSchedule = async (activeStream = stream) => {
+    const { data } = await api.get('/recruitment/schedule', {
+      params: { stream: activeStream },
+    });
     setSchedule(data);
   };
 
@@ -152,8 +169,10 @@ export default function ManageRecruitment() {
     setSettings(data);
   };
 
-  const loadStats = async () => {
-    const { data } = await api.get('/recruitment/stats');
+  const loadStats = async (activeStream = stream) => {
+    const { data } = await api.get('/recruitment/stats', {
+      params: { stream: activeStream },
+    });
     setStats(data);
   };
 
@@ -165,6 +184,21 @@ export default function ManageRecruitment() {
         setReady(true);
       });
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    setFilterDate('');
+    setFilterTime('');
+    setStatut('');
+    setPage(1);
+    setTab('candidates');
+    Promise.all([
+      loadCandidates({ page: 1, statut: '', stream }),
+      loadSlots(stream),
+      loadSchedule(stream),
+      loadStats(stream),
+    ]).catch((err) => setError(err.response?.data?.message || 'Chargement impossible.'));
+  }, [stream]);
 
   useEffect(() => {
     if (!ready || tab !== 'candidates') return undefined;
@@ -423,9 +457,10 @@ export default function ManageRecruitment() {
 
   const confirmPayment = async (id) => {
     const ok = await confirm({
-      title: 'Confirmer le paiement ?',
-      message: 'Le candidat passera en « Paiement confirmé », recevra un email, et sera ajouté au Google Sheet.',
-      confirmLabel: 'Confirmer',
+      title: 'Valider le paiement ?',
+      message:
+        'Le candidat passera en « Paiement confirmé ». Le mail d’accès membre s’envoie ensuite via le bouton « Mail accès ».',
+      confirmLabel: 'Valider',
     });
     if (!ok) return;
     setSaving(true);
@@ -440,6 +475,23 @@ export default function ManageRecruitment() {
     }
   };
 
+  const sendPaymentAccessMail = async (id) => {
+    if (mailingLock.current) return;
+    mailingLock.current = true;
+    setMailingId(id);
+    setError('');
+    try {
+      const { data } = await api.post(`/recruitment/candidates/${id}/send-payment-access`);
+      flash(data.message || 'Mail accès membre envoyé.');
+      await Promise.all([loadCandidates(), loadStats()]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Envoi de l'email impossible.");
+    } finally {
+      mailingLock.current = false;
+      setMailingId(null);
+    }
+  };
+
   const saveSlot = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -447,6 +499,7 @@ export default function ManageRecruitment() {
       await api.post('/recruitment/slots', {
         ...slotForm,
         max_places: Number(slotForm.max_places),
+        stream,
       });
       flash('Créneau créé.');
       setSlotForm(emptySlot);
@@ -539,7 +592,9 @@ export default function ManageRecruitment() {
         <div>
           <h1>Recrutement</h1>
           <p>
-            Pipeline candidature → entretien → présence → paiement.{' '}
+            {isMedia
+              ? 'Media Babies : candidature → entretien → présence → réussite.'
+              : 'Pipeline candidature → entretien → présence → paiement.'}{' '}
             <strong>{stats.total}</strong> candidat{stats.total > 1 ? 's' : ''} au total.
           </p>
         </div>
@@ -555,8 +610,25 @@ export default function ManageRecruitment() {
         ) : null}
       </header>
 
+      <div className={styles.streamSwitch}>
+        <button
+          type="button"
+          className={`${styles.streamBtn} ${!isMedia ? styles.streamBtnActive : ''}`}
+          onClick={() => setStream('general')}
+        >
+          Recrutement club
+        </button>
+        <button
+          type="button"
+          className={`${styles.streamBtn} ${isMedia ? styles.streamBtnActive : ''}`}
+          onClick={() => setStream('media_babies')}
+        >
+          Media Babies
+        </button>
+      </div>
+
       <div className={styles.pipeline}>
-        {PIPELINE.map((step, idx) => (
+        {pipeline.map((step, idx) => (
           <button
             key={step.id}
             type="button"
@@ -585,27 +657,45 @@ export default function ManageRecruitment() {
       {settings && (
         <div className={`card ${styles.toggleCard}`}>
           <div>
-            <strong>Candidatures publiques</strong>
+            <strong>
+              {isMedia ? 'Candidatures Media Babies' : 'Candidatures club'}
+            </strong>
             <p className={styles.meta} style={{ margin: '0.25rem 0 0' }}>
-              {settings.candidature_ouverte
-                ? 'Ouvertes — la page /candidature est visible sur le site.'
-                : 'Fermées — la page n’apparaît pas dans le menu public.'}
+              {isMedia
+                ? settings.candidature_ouverte_media
+                  ? 'Ouvertes — la page /candidature-media est visible sur le site.'
+                  : 'Fermées — la page n’apparaît pas dans le menu public.'
+                : settings.candidature_ouverte
+                  ? 'Ouvertes — la page /candidature est visible sur le site.'
+                  : 'Fermées — la page n’apparaît pas dans le menu public.'}
             </p>
           </div>
           <label className={styles.switch}>
             <input
               type="checkbox"
-              checked={!!settings.candidature_ouverte}
+              checked={
+                isMedia
+                  ? !!settings.candidature_ouverte_media
+                  : !!settings.candidature_ouverte
+              }
               onChange={async (e) => {
                 const next = e.target.checked;
                 setSaving(true);
                 try {
-                  const { data } = await api.put('/recruitment/settings', {
-                    ...settings,
-                    candidature_ouverte: next,
-                  });
+                  const payload = isMedia
+                    ? { ...settings, candidature_ouverte_media: next }
+                    : { ...settings, candidature_ouverte: next };
+                  const { data } = await api.put('/recruitment/settings', payload);
                   setSettings(data);
-                  flash(next ? 'Candidatures ouvertes.' : 'Candidatures fermées.');
+                  flash(
+                    next
+                      ? isMedia
+                        ? 'Media Babies ouvert.'
+                        : 'Candidatures ouvertes.'
+                      : isMedia
+                        ? 'Media Babies fermé.'
+                        : 'Candidatures fermées.'
+                  );
                 } catch (err) {
                   setError(err.response?.data?.message || 'Mise à jour impossible.');
                 } finally {
@@ -614,7 +704,13 @@ export default function ManageRecruitment() {
               }}
               disabled={saving}
             />
-            <span>{settings.candidature_ouverte ? 'Ouvert' : 'Fermé'}</span>
+            <span>
+              {(isMedia
+                ? settings.candidature_ouverte_media
+                : settings.candidature_ouverte)
+                ? 'Ouvert'
+                : 'Fermé'}
+            </span>
           </label>
         </div>
       )}
@@ -742,9 +838,20 @@ export default function ManageRecruitment() {
                             className="btn btn-primary btn-sm"
                             onClick={() => confirmPayment(c.id)}
                             disabled={saving || mailingId === c.id}
-                            title="Confirmer le paiement et exporter vers Google Sheet"
+                            title="Passer en paiement confirmé (sans envoyer le mail d’accès)"
                           >
                             Valider paiement
+                          </button>
+                        )}
+                        {c.statut === 'paiement_confirme' && (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => sendPaymentAccessMail(c.id)}
+                            disabled={mailingId === c.id}
+                            title="Envoyer le mail paiement confirmé + identifiants membre"
+                          >
+                            {mailingId === c.id ? 'Envoi…' : 'Mail accès'}
                           </button>
                         )}
                         {c.statut !== 'paiement_confirme' && (
@@ -879,8 +986,9 @@ export default function ManageRecruitment() {
             <div>
               <h3>Présents à l&apos;entretien</h3>
               <p className={styles.meta}>
-                Envoyez le mail de réussite + paiement (textes modifiables dans Paramètres →
-                Emails).
+                {isMedia
+                  ? 'Envoyez le mail de réussite Media Babies (sans paiement). Textes modifiables dans Paramètres → Emails.'
+                  : 'Envoyez le mail de réussite + paiement (textes modifiables dans Paramètres → Emails).'}
               </p>
             </div>
             <strong className={styles.flowStat}>{presentsCount}</strong>
@@ -919,7 +1027,11 @@ export default function ManageRecruitment() {
                         className="btn btn-primary btn-sm"
                         onClick={() => sendSuccessPaymentMail(c.id)}
                         disabled={mailingId === c.id}
-                        title="Envoyer mail réussite + paiement"
+                        title={
+                          isMedia
+                            ? 'Envoyer mail de réussite Media Babies'
+                            : 'Envoyer mail réussite + paiement'
+                        }
                       >
                         {mailingId === c.id ? 'Envoi…' : 'Mail réussite'}
                       </button>
@@ -946,7 +1058,7 @@ export default function ManageRecruitment() {
                   type="date"
                   value={slotForm.date_slot}
                   onChange={(e) => setSlotForm({ ...slotForm, date_slot: e.target.value })}
-                  min={minSelectableDate(slotForm.date_slot)}
+                  min={slotDateMin}
                   required
                 />
               </div>
@@ -1141,7 +1253,7 @@ export default function ManageRecruitment() {
           {settingsPane === 'general' && (
             <>
               <h3>Ouverture des candidatures</h3>
-              <label className={styles.switch} style={{ marginBottom: '1.25rem' }}>
+              <label className={styles.switch} style={{ marginBottom: '0.75rem' }}>
                 <input
                   type="checkbox"
                   checked={!!settings.candidature_ouverte}
@@ -1151,8 +1263,25 @@ export default function ManageRecruitment() {
                 />
                 <span>
                   {settings.candidature_ouverte
-                    ? 'Page candidature ouverte sur le site'
-                    : 'Page candidature fermée (masquée)'}
+                    ? 'Recrutement club ouvert (/candidature)'
+                    : 'Recrutement club fermé'}
+                </span>
+              </label>
+              <label className={styles.switch} style={{ marginBottom: '1.25rem' }}>
+                <input
+                  type="checkbox"
+                  checked={!!settings.candidature_ouverte_media}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      candidature_ouverte_media: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  {settings.candidature_ouverte_media
+                    ? 'Media Babies ouvert (/candidature-media)'
+                    : 'Media Babies fermé'}
                 </span>
               </label>
 
@@ -1312,13 +1441,44 @@ export default function ManageRecruitment() {
 
               <MailTemplateEditor
                 title="3 — Paiement confirmé + accès membre"
-                description="Envoyé au clic « Valider paiement ». Utilise les liens de l’onglet Général."
+                description="Envoyé au clic « Mail accès » sur les candidats en Paiement confirmé (après enregistrement trésorerie ou validation)."
                 placeholders={MAIL_PAYMENT_PLACEHOLDERS}
                 sampleVars={mailSampleVars}
                 subject={settings.mail_paiement_sujet || ''}
                 body={settings.mail_paiement_corps || ''}
                 onSubjectChange={(v) => setSettings({ ...settings, mail_paiement_sujet: v })}
                 onBodyChange={(v) => setSettings({ ...settings, mail_paiement_corps: v })}
+              />
+
+              <h3 style={{ marginTop: '1.5rem' }}>Media Babies</h3>
+              <MailTemplateEditor
+                title="MB1 — Confirmation + lien calendrier"
+                description="Envoyé après candidature Media Babies."
+                placeholders={MAIL_CONFIRM_PLACEHOLDERS}
+                sampleVars={mailSampleVars}
+                subject={settings.mail_media_confirmation_sujet || ''}
+                body={settings.mail_media_confirmation_corps || ''}
+                onSubjectChange={(v) =>
+                  setSettings({ ...settings, mail_media_confirmation_sujet: v })
+                }
+                onBodyChange={(v) =>
+                  setSettings({ ...settings, mail_media_confirmation_corps: v })
+                }
+              />
+
+              <MailTemplateEditor
+                title="MB2 — Réussite entretien (sans paiement)"
+                description="Envoyé depuis Présents du flux Media Babies."
+                placeholders={[{ key: 'Nom', hint: 'Prénom + nom' }]}
+                sampleVars={mailSampleVars}
+                subject={settings.mail_media_reussite_sujet || ''}
+                body={settings.mail_media_reussite_corps || ''}
+                onSubjectChange={(v) =>
+                  setSettings({ ...settings, mail_media_reussite_sujet: v })
+                }
+                onBodyChange={(v) =>
+                  setSettings({ ...settings, mail_media_reussite_corps: v })
+                }
               />
             </>
           )}

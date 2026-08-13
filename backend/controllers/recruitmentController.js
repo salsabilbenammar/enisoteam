@@ -10,10 +10,16 @@ const {
   buildInterviewConfirmationEmail,
   buildPaymentRequestEmail,
   buildSuccessPaymentEmail,
+  buildMediaSuccessEmail,
   buildPaymentConfirmedEmail,
 } = require('../services/recruitmentMailTemplates');
 const googleSheets = require('../services/googleSheetsService');
 const { provisionMemberFromCandidate } = require('../services/memberProvisionService');
+const {
+  STREAM_MEDIA,
+  normalizeStream,
+  isMediaStream,
+} = require('../utils/recruitmentStreams');
 
 function parseIds(body) {
   const raw = body.ids || body.candidate_ids || [];
@@ -54,8 +60,11 @@ function isPastDate(value) {
 
 async function getPublicStatus(_req, res, next) {
   try {
-    const open = await settingsModel.isOpen();
-    res.json({ candidature_ouverte: open });
+    const settings = await settingsModel.get();
+    res.json({
+      candidature_ouverte: !!settings.candidature_ouverte,
+      candidature_ouverte_media: !!settings.candidature_ouverte_media,
+    });
   } catch (err) {
     next(err);
   }
@@ -65,10 +74,15 @@ async function getPublicStatus(_req, res, next) {
 
 async function apply(req, res, next) {
   try {
-    const open = await settingsModel.isOpen();
+    const stream = normalizeStream(req.body.stream);
+    const open = isMediaStream(stream)
+      ? await settingsModel.isOpenMedia()
+      : await settingsModel.isOpen();
     if (!open) {
       return res.status(403).json({
-        message: 'Les candidatures sont actuellement fermées.',
+        message: isMediaStream(stream)
+          ? 'Les candidatures Media Babies sont actuellement fermées.'
+          : 'Les candidatures sont actuellement fermées.',
       });
     }
     const {
@@ -132,31 +146,49 @@ async function apply(req, res, next) {
       domaine_interet: String(domaine_interet).trim(),
       unique_about: String(unique_about).trim(),
       piece_jointe_path: attachment ? `/uploads/recruitment/${attachment.filename}` : null,
+      stream,
     });
 
     // Token + lien calendrier envoyés dès le premier mail
     candidate = await candidateModel.setBookingToken(candidate.id, createToken());
     const settings = await settingsModel.get();
     const link = `${frontendBase()}/recrutement/reservation/${candidate.booking_token}`;
-    const mail = buildConfirmationEmail(candidate, link, settings);
-    await emailQueueModel.enqueue({
-      candidate_id: candidate.id,
-      email_to: candidate.email,
-      type: 'confirmation',
-      subject: mail.subject,
-      body: mail.text,
-      scheduled_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
-    });
+    const mailSettings = isMediaStream(stream)
+      ? {
+          ...settings,
+          mail_confirmation_sujet: settings.mail_media_confirmation_sujet,
+          mail_confirmation_corps: settings.mail_media_confirmation_corps,
+        }
+      : settings;
+    const mail = buildConfirmationEmail(candidate, link, mailSettings);
+    await emailQueueModel.sendImmediate(
+      {
+        candidate_id: candidate.id,
+        email_to: candidate.email,
+        type: isMediaStream(stream) ? 'media_confirmation' : 'confirmation',
+        subject: mail.subject,
+        body: mail.text,
+        html: mail.html,
+      },
+      { skipIfAlreadySent: true }
+    );
 
     res.status(201).json({
       message: 'Candidature envoyée avec succès.',
       id: candidate.id,
+      stream,
     });
   } catch (err) {
     if (err.code === 'ER_NO_SUCH_TABLE') {
       return res.status(503).json({
         message:
           'Tables recrutement absentes. Exécutez database/update_recruitment_module.sql',
+      });
+    }
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(503).json({
+        message:
+          'Migration Media Babies requise. Exécutez: node database/migrate_recruitment_media_babies.js',
       });
     }
     next(err);
@@ -190,13 +222,14 @@ async function getBookingPage(req, res, next) {
       });
     }
 
-    const slots = await slotModel.getAvailable();
+    const slots = await slotModel.getAvailable(normalizeStream(candidate.stream));
     res.json({
       candidate: {
         id: candidate.id,
         nom: candidate.nom,
         prenom: candidate.prenom,
         statut: candidate.statut,
+        stream: normalizeStream(candidate.stream),
         booked: false,
       },
       slots,
@@ -219,14 +252,17 @@ async function bookSlot(req, res, next) {
     const settings = await settingsModel.get();
     const mail = buildInterviewConfirmationEmail(updated, slot, settings);
 
-    await emailQueueModel.enqueue({
-      candidate_id: updated.id,
-      email_to: updated.email,
-      type: 'interview_confirmation',
-      subject: mail.subject,
-      body: mail.text,
-      scheduled_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
-    });
+    await emailQueueModel.sendImmediate(
+      {
+        candidate_id: updated.id,
+        email_to: updated.email,
+        type: 'interview_confirmation',
+        subject: mail.subject,
+        body: mail.text,
+        html: mail.html,
+      },
+      { skipIfAlreadySent: true }
+    );
 
     res.json({
       message: 'Créneau réservé avec succès.',
@@ -247,6 +283,7 @@ async function listCandidates(req, res, next) {
       statut: req.query.statut || '',
       date_slot: req.query.date_slot || '',
       heure_slot: req.query.heure_slot || '',
+      stream: req.query.stream || '',
       page: Number(req.query.page || 1),
       limit: Number(req.query.limit || 10),
     });
@@ -256,9 +293,9 @@ async function listCandidates(req, res, next) {
   }
 }
 
-async function getStats(_req, res, next) {
+async function getStats(req, res, next) {
   try {
-    res.json(await candidateModel.getStats());
+    res.json(await candidateModel.getStats(req.query.stream || ''));
   } catch (err) {
     next(err);
   }
@@ -346,12 +383,19 @@ async function resendConfirmation(req, res, next) {
 
     const settings = await settingsModel.get();
     const link = `${frontendBase()}/recrutement/reservation/${candidate.booking_token}`;
-    const mail = buildConfirmationEmail(candidate, link, settings);
+    const mailSettings = isMediaStream(candidate.stream)
+      ? {
+          ...settings,
+          mail_confirmation_sujet: settings.mail_media_confirmation_sujet,
+          mail_confirmation_corps: settings.mail_media_confirmation_corps,
+        }
+      : settings;
+    const mail = buildConfirmationEmail(candidate, link, mailSettings);
 
     await emailQueueModel.sendImmediate({
       candidate_id: candidate.id,
       email_to: candidate.email,
-      type: 'confirmation',
+      type: isMediaStream(candidate.stream) ? 'media_confirmation' : 'confirmation',
       subject: mail.subject,
       body: mail.text,
       html: mail.html,
@@ -413,6 +457,29 @@ async function sendSuccessPayment(req, res, next) {
     }
 
     const settings = await settingsModel.get();
+
+    if (isMediaStream(candidate.stream)) {
+      const mail = buildMediaSuccessEmail(candidate, settings);
+      await candidateModel.updateStatus(
+        [candidate.id],
+        'accepte',
+        'Entretien Media Babies réussi'
+      );
+      await emailQueueModel.sendImmediate({
+        candidate_id: candidate.id,
+        email_to: candidate.email,
+        type: 'media_success',
+        subject: mail.subject,
+        body: mail.text,
+        html: mail.html,
+      });
+      const updated = await candidateModel.findById(candidate.id);
+      return res.json({
+        message: `Mail de réussite Media Babies envoyé à ${candidate.email}.`,
+        candidate: updated,
+      });
+    }
+
     const mail = buildSuccessPaymentEmail(candidate, settings);
 
     await candidateModel.updateStatus(
@@ -493,11 +560,12 @@ async function schedulePaymentRequests(req, res, next) {
     const accepted = [];
     for (const id of ids) {
       const c = await candidateModel.findById(id);
-      if (c && c.statut === 'accepte') accepted.push(c.id);
+      if (c && c.statut === 'accepte' && !isMediaStream(c.stream)) accepted.push(c.id);
     }
     if (!accepted.length) {
       return res.status(400).json({
-        message: 'Sélectionnez des candidats au statut « Accepté ».',
+        message:
+          'Sélectionnez des candidats au statut « Accepté » (hors Media Babies).',
       });
     }
 
@@ -532,7 +600,9 @@ async function confirmPayments(req, res, next) {
     const eligible = [];
     for (const id of ids) {
       const c = await candidateModel.findById(id);
-      if (c && c.statut === 'paiement_en_attente') eligible.push(c.id);
+      if (c && c.statut === 'paiement_en_attente' && !isMediaStream(c.stream)) {
+        eligible.push(c.id);
+      }
     }
     if (!eligible.length) {
       return res.status(400).json({
@@ -542,36 +612,11 @@ async function confirmPayments(req, res, next) {
 
     await candidateModel.updateStatus(eligible, 'paiement_confirme', 'Paiement validé');
 
-    const settings = await settingsModel.get();
     let sheetsOk = 0;
     let sheetsFail = 0;
-    let membersCreated = 0;
 
     for (const id of eligible) {
       const candidate = await candidateModel.findById(id);
-
-      let credentials = { email: candidate.email, temporaryPassword: null };
-      try {
-        const provisioned = await provisionMemberFromCandidate(candidate);
-        credentials = {
-          email: provisioned.email,
-          temporaryPassword: provisioned.temporaryPassword,
-        };
-        if (provisioned.created) membersCreated += 1;
-      } catch (provisionErr) {
-        console.error('[recruitment] Création compte membre impossible:', provisionErr.message);
-      }
-
-      const mail = buildPaymentConfirmedEmail(candidate, settings, credentials);
-      await emailQueueModel.sendImmediate({
-        candidate_id: candidate.id,
-        email_to: candidate.email,
-        type: 'payment_confirmed',
-        subject: mail.subject,
-        body: mail.text,
-        html: mail.html,
-      });
-
       if (!candidate.sheets_exported_at) {
         const result = await googleSheets.appendPaidCandidate(candidate);
         if (result.synced) {
@@ -583,19 +628,17 @@ async function confirmPayments(req, res, next) {
       }
     }
 
-    let message = `Paiements confirmés. ${membersCreated} compte(s) membre créé(s). Emails envoyés.`;
+    let message =
+      'Paiement(s) validé(s). Utilisez le bouton « Mail accès » pour envoyer le mail paiement confirmé + identifiants membre.';
     if (googleSheets.isConfigured()) {
       message += ` Google Sheet : ${sheetsOk} exporté(s)`;
       if (sheetsFail) message += `, ${sheetsFail} échec(s)`;
       message += '.';
-    } else {
-      message += ' (Google Sheet non configuré)';
     }
 
     res.json({
       message,
       count: eligible.length,
-      membersCreated,
       sheetsOk,
       sheetsFail,
     });
@@ -604,11 +647,79 @@ async function confirmPayments(req, res, next) {
   }
 }
 
+async function sendPaymentAccessMail(req, res, next) {
+  try {
+    const candidate = await candidateModel.findById(req.params.id);
+    if (!candidate) return res.status(404).json({ message: 'Candidat introuvable.' });
+    if (isMediaStream(candidate.stream)) {
+      return res.status(400).json({
+        message: 'Media Babies n’utilise pas le mail d’accès membre.',
+      });
+    }
+    if (candidate.statut !== 'paiement_confirme') {
+      return res.status(400).json({
+        message:
+          'Le candidat doit être en « Paiement confirmé » (après enregistrement trésorerie ou validation).',
+      });
+    }
+
+    const settings = await settingsModel.get();
+    let credentials = { email: candidate.email, temporaryPassword: null };
+    let membersCreated = 0;
+    try {
+      const provisioned = await provisionMemberFromCandidate(candidate);
+      credentials = {
+        email: provisioned.email,
+        temporaryPassword: provisioned.temporaryPassword,
+      };
+      if (provisioned.created) membersCreated = 1;
+    } catch (provisionErr) {
+      console.error('[recruitment] Création compte membre impossible:', provisionErr.message);
+      return res.status(500).json({
+        message: `Impossible de préparer le compte membre : ${provisionErr.message}`,
+      });
+    }
+
+    const mail = buildPaymentConfirmedEmail(candidate, settings, credentials);
+    await emailQueueModel.sendImmediate({
+      candidate_id: candidate.id,
+      email_to: candidate.email,
+      type: 'payment_confirmed',
+      subject: mail.subject,
+      body: mail.text,
+      html: mail.html,
+    });
+
+    let sheetsNote = '';
+    if (!candidate.sheets_exported_at) {
+      const result = await googleSheets.appendPaidCandidate(candidate);
+      if (result.synced) {
+        await candidateModel.markSheetsExported(candidate.id);
+        sheetsNote = ' Export Google Sheet effectué.';
+      } else if (!result.skipped) {
+        sheetsNote = ' (échec export Google Sheet)';
+      }
+    }
+
+    const updated = await candidateModel.findById(candidate.id);
+    res.json({
+      message: `Mail paiement confirmé + accès membre envoyé à ${candidate.email}.${
+        membersCreated ? ' Compte membre créé.' : ' Mot de passe membre régénéré.'
+      }${sheetsNote}`,
+      candidate: updated,
+      membersCreated,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
 /* ─── Slots ─── */
 
-async function listSlots(_req, res, next) {
+async function listSlots(req, res, next) {
   try {
-    res.json(await slotModel.getAll());
+    res.json(await slotModel.getAll(req.query.stream || ''));
   } catch (err) {
     next(err);
   }
@@ -616,7 +727,7 @@ async function listSlots(_req, res, next) {
 
 async function createSlot(req, res, next) {
   try {
-    const { date_slot, heure_slot, max_places, lieu } = req.body;
+    const { date_slot, heure_slot, max_places, lieu, stream } = req.body;
     if (!date_slot || !heure_slot) {
       return res.status(400).json({ message: 'Date et heure requises.' });
     }
@@ -632,6 +743,7 @@ async function createSlot(req, res, next) {
       heure_slot,
       max_places: max,
       lieu,
+      stream,
     });
     res.status(201).json(row);
   } catch (err) {
@@ -662,9 +774,9 @@ async function removeSlot(req, res, next) {
   }
 }
 
-async function schedule(_req, res, next) {
+async function schedule(req, res, next) {
   try {
-    res.json(await slotModel.getSchedule());
+    res.json(await slotModel.getSchedule(req.query.stream || ''));
   } catch (err) {
     next(err);
   }
@@ -729,6 +841,7 @@ module.exports = {
   scheduleInvitations,
   schedulePaymentRequests,
   confirmPayments,
+  sendPaymentAccessMail,
   listSlots,
   createSlot,
   updateSlot,

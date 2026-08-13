@@ -1,11 +1,16 @@
 const pool = require('../config/db');
+const { normalizeStream } = require('../utils/recruitmentStreams');
 
-async function getAll() {
+async function getAll(stream = '') {
+  const where = stream ? 'WHERE s.stream = ?' : '';
+  const params = stream ? [normalizeStream(stream)] : [];
   const [rows] = await pool.execute(
     `SELECT s.*,
             (SELECT COUNT(*) FROM recruitment_candidates c WHERE c.interview_slot_id = s.id) AS reserved
      FROM recruitment_slots s
-     ORDER BY s.date_slot ASC, s.heure_slot ASC`
+     ${where}
+     ORDER BY s.date_slot ASC, s.heure_slot ASC`,
+    params
   );
   return rows.map(enrich);
 }
@@ -42,8 +47,8 @@ function isBookable(slot, today = todayKeyLocal(), nowTime = nowTimeKeyLocal()) 
   return true;
 }
 
-async function getAvailable() {
-  const all = await getAll();
+async function getAvailable(stream = '') {
+  const all = await getAll(stream);
   const today = todayKeyLocal();
   const nowTime = nowTimeKeyLocal();
   return all.filter((s) => isBookable(s, today, nowTime));
@@ -71,11 +76,11 @@ function enrich(row) {
   };
 }
 
-async function create({ date_slot, heure_slot, max_places, lieu }) {
+async function create({ date_slot, heure_slot, max_places, lieu, stream }) {
   const [result] = await pool.execute(
-    `INSERT INTO recruitment_slots (date_slot, heure_slot, max_places, lieu)
-     VALUES (?, ?, ?, ?)`,
-    [date_slot, heure_slot, max_places, lieu || null]
+    `INSERT INTO recruitment_slots (date_slot, heure_slot, max_places, lieu, stream)
+     VALUES (?, ?, ?, ?, ?)`,
+    [date_slot, heure_slot, max_places, lieu || null, normalizeStream(stream)]
   );
   return getById(result.insertId);
 }
@@ -103,13 +108,17 @@ async function remove(id) {
   return result.affectedRows > 0;
 }
 
-async function getSchedule() {
+async function getSchedule(stream = '') {
+  const where = stream ? 'WHERE s.stream = ?' : '';
+  const params = stream ? [normalizeStream(stream)] : [];
   const [rows] = await pool.execute(
-    `SELECT s.id AS slot_id, s.date_slot, s.heure_slot, s.max_places, s.lieu,
-            c.id AS candidate_id, c.nom, c.prenom, c.email, c.telephone, c.statut
+    `SELECT s.id AS slot_id, s.date_slot, s.heure_slot, s.max_places, s.lieu, s.stream,
+            c.id AS candidate_id, c.nom, c.prenom, c.email, c.telephone, c.statut, c.stream AS candidate_stream
      FROM recruitment_slots s
      LEFT JOIN recruitment_candidates c ON c.interview_slot_id = s.id
-     ORDER BY s.date_slot ASC, s.heure_slot ASC, c.nom ASC, c.prenom ASC`
+     ${where}
+     ORDER BY s.date_slot ASC, s.heure_slot ASC, c.nom ASC, c.prenom ASC`,
+    params
   );
 
   const map = new Map();
@@ -122,6 +131,7 @@ async function getSchedule() {
         heure_slot: row.heure_slot,
         max_places: row.max_places,
         lieu: row.lieu,
+        stream: row.stream || 'general',
         candidates: [],
       });
     }
@@ -133,6 +143,7 @@ async function getSchedule() {
         email: row.email,
         telephone: row.telephone,
         statut: row.statut,
+        stream: row.candidate_stream || 'general',
       });
     }
   }

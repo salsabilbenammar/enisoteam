@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
@@ -31,6 +31,8 @@ export default function ActivityInscription({ type }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const dateMin = useMemo(() => minSelectableDate(), []);
+  const dateMax = useMemo(() => localToday(), []);
 
   const isEvent = type === 'events';
   const listPath = isEvent ? '/events' : '/trainings';
@@ -419,8 +421,8 @@ export default function ActivityInscription({ type }) {
                       required={field.required}
                       {...(field.type === 'date'
                         ? isBirthDateField(field)
-                          ? { max: localToday() }
-                          : { min: minSelectableDate(customAnswers[field.id]) }
+                          ? { max: dateMax }
+                          : { min: dateMin }
                         : {})}
                     />
                   )}

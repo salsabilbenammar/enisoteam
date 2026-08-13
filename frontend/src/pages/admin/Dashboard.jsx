@@ -63,11 +63,20 @@ const MODULES = [
     accent: 'cyan',
     icon: 'candidate',
   },
+  {
+    key: 'finance',
+    label: 'Finance',
+    hint: 'Cotisations',
+    to: '/admin/finance',
+    accent: 'blue',
+    icon: 'calendar',
+  },
 ];
 
 const QUICK = [
   { label: 'Nouveau créneau', to: '/admin/recruitment', hint: 'Entretiens' },
   { label: 'Gérer le recrutement', to: '/admin/recruitment', hint: 'Candidats' },
+  { label: 'Trésorerie', to: '/admin/finance', hint: 'Cotisations' },
   { label: 'Coin RH', to: '/admin/rh', hint: 'Mérites & formulaires' },
   { label: 'Site public', to: '/', hint: 'Voir le club', external: true },
 ];

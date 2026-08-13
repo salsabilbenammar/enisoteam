@@ -1,15 +1,21 @@
 const emailQueueModel = require('../models/recruitmentEmailQueueModel');
 
+let started = false;
+
 function startRecruitmentCron() {
+  if (started) return;
+  started = true;
+
   let cron;
   try {
     cron = require('node-cron');
   } catch {
     console.warn('[recruitment] node-cron indisponible');
+    started = false;
     return;
   }
 
-  // Toutes les minutes
+  // Toutes les minutes — un seul worker (évite les doubles si le module est rechargé)
   cron.schedule('* * * * *', async () => {
     try {
       const n = await emailQueueModel.processDue(30);

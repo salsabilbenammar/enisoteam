@@ -20,12 +20,34 @@ const PORT = process.env.PORT || 5000;
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      const allowed = new Set(
+        String(process.env.FRONTEND_URL || 'http://localhost:5173')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      );
+      allowed.add('http://localhost:5173');
+      allowed.add('http://127.0.0.1:5173');
+      if (!origin || allowed.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Origine CORS non autorisée: ${origin}`));
+    },
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Docs d'étapes : non servies en public (accès via API membres uniquement)
+app.use('/uploads/project-steps', (_req, res) => {
+  res.status(403).json({
+    message: 'Documentation réservée aux membres ENISO Team. Connectez-vous pour y accéder.',
+  });
+});
+
 app.use('/uploads', express.static(uploadsRoot));
 
 app.get('/api/health', async (_req, res) => {
@@ -48,6 +70,8 @@ app.use('/api/site-settings', siteSettingsRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/rh', require('./routes/rhRoutes'));
 app.use('/api/recruitment', require('./routes/recruitmentRoutes'));
+app.use('/api/projects', require('./routes/projectRoutes'));
+app.use('/api/finance', require('./routes/financeRoutes'));
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Route introuvable.' });

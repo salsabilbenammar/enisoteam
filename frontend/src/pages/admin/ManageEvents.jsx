@@ -4,7 +4,7 @@ import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import FormQuestionPicker from '../../components/admin/FormQuestionPicker';
 import { toApiFields } from '../../data/formQuestionBank';
-import { minSelectableDateTime } from '../../utils/dateLimits';
+import { defaultDateTimeMin, minSelectableDateTime } from '../../utils/dateLimits';
 
 const empty = {
   titre: '',
@@ -66,6 +66,7 @@ export default function ManageEvents() {
   const [regs, setRegs] = useState(null);
   const [regsTitle, setRegsTitle] = useState('');
   const [regsMeta, setRegsMeta] = useState({ type: 'individuel', fields: [] });
+  const [dateMin, setDateMin] = useState(() => defaultDateTimeMin());
 
   const load = () =>
     api
@@ -81,14 +82,17 @@ export default function ManageEvents() {
   const reset = () => {
     setForm(empty);
     setEditId(null);
+    setDateMin(defaultDateTimeMin());
   };
 
   const onEdit = (item) => {
     setEditId(item.id);
+    const localDate = toLocalInput(item.date);
+    setDateMin(minSelectableDateTime(localDate));
     setForm({
       titre: item.titre,
       description: item.description,
-      date: toLocalInput(item.date),
+      date: localDate,
       lieu: item.lieu || '',
       statut: item.statut || 'a_venir',
       image: null,
@@ -205,7 +209,7 @@ export default function ManageEvents() {
               type="datetime-local"
               value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
-              min={minSelectableDateTime(form.date)}
+              min={dateMin}
               required
             />
           </div>

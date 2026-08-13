@@ -40,6 +40,7 @@ const ICONS = {
 export default function Footer() {
   const [settings, setSettings] = useState(DEFAULTS);
   const [candidatureOpen, setCandidatureOpen] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -48,13 +49,20 @@ export default function Footer() {
       .catch(() => setSettings(DEFAULTS));
     api
       .get('/recruitment/status')
-      .then((res) => setCandidatureOpen(!!res.data.candidature_ouverte))
-      .catch(() => setCandidatureOpen(false));
+      .then((res) => {
+        setCandidatureOpen(!!res.data.candidature_ouverte);
+        setMediaOpen(!!res.data.candidature_ouverte_media);
+      })
+      .catch(() => {
+        setCandidatureOpen(false);
+        setMediaOpen(false);
+      });
   }, []);
 
   const navLinks = [
     ...BASE_NAV_LINKS,
     ...(candidatureOpen ? [{ to: '/candidature', label: 'Candidature' }] : []),
+    ...(mediaOpen ? [{ to: '/candidature-media', label: 'Media Babies' }] : []),
   ];
 
   const socialLinks = [

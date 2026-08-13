@@ -3,7 +3,20 @@ const fs = require('fs');
 const multer = require('multer');
 
 const uploadsRoot = path.join(__dirname, '..', 'uploads');
-const dirs = ['images', 'cv', 'board', 'events', 'announcements', 'club', 'gallery', 'recruitment'];
+const dirs = [
+  'images',
+  'cv',
+  'board',
+  'events',
+  'announcements',
+  'club',
+  'gallery',
+  'recruitment',
+  'projects',
+  'project-members',
+  'project-steps',
+  'finance',
+];
 
 dirs.forEach((dir) => {
   const full = path.join(uploadsRoot, dir);
@@ -94,4 +107,59 @@ const uploadRecruitment = multer({
   { name: 'piece_jointe', maxCount: 1 },
 ]);
 
-module.exports = { uploadImage, uploadMedia, uploadCv, uploadRecruitment, uploadsRoot };
+function projectMemberPhotoFilter(_req, file, cb) {
+  if (file.fieldname === 'photo' || /^photo_\d+$/.test(file.fieldname)) {
+    return imageFilter(_req, file, cb);
+  }
+  return cb(new Error('Champ fichier non autorisé.'));
+}
+
+const uploadProjectMemberPhotos = multer({
+  storage: makeStorage('project-members'),
+  limits: { fileSize: 5 * 1024 * 1024, files: 20 },
+  fileFilter: projectMemberPhotoFilter,
+}).any();
+
+const stepDocMime = new Set([
+  ...cvMime,
+  ...imageMime,
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/zip',
+  'application/x-zip-compressed',
+  'text/plain',
+]);
+
+function stepDocFilter(_req, file, cb) {
+  if (stepDocMime.has(file.mimetype)) return cb(null, true);
+  cb(
+    new Error(
+      'Document non autorisé. Formats : PDF, Word, PowerPoint, Excel, image, ZIP ou TXT.'
+    )
+  );
+}
+
+const uploadProjectStepDocument = multer({
+  storage: makeStorage('project-steps'),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: stepDocFilter,
+}).single('document');
+
+const uploadFinanceJustificatif = multer({
+  storage: makeStorage('finance'),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: stepDocFilter,
+}).single('justificatif');
+
+module.exports = {
+  uploadImage,
+  uploadMedia,
+  uploadCv,
+  uploadRecruitment,
+  uploadProjectMemberPhotos,
+  uploadProjectStepDocument,
+  uploadFinanceJustificatif,
+  uploadsRoot,
+};

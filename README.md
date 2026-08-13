@@ -43,6 +43,7 @@ C:\xampp\mysql\bin\mysql.exe -u root < "database\eniso_team.sql"
 > **Formations** et **Coin RH** sont réservés aux membres inscrits (et aux admins).
 > Les comptes membres se gèrent dans **Admin → Membres**.
 > Un membre n’a jamais accès à `/admin`.
+> **Projets** : catalogue + `/mes-projets` (étapes) + publication auto à 100 % (`/projets` → Réalisations). Docs d’étapes réservés aux membres. Migrations : `migrate_project_steps.js`, `migrate_project_step_documents.js`, `migrate_project_publish.js`.
 
 ## 2. Backend
 
