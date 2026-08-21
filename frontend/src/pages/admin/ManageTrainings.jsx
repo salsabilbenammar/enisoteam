@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
-import FormQuestionPicker from '../../components/admin/FormQuestionPicker';
+import GoogleFormBuilder, { createBlankQuestion } from '../../components/admin/GoogleFormBuilder';
 import { toApiFields } from '../../data/formQuestionBank';
 import { defaultDateMin, minSelectableDate } from '../../utils/dateLimits';
+import styles from './ManageDeplacements.module.css';
 
 const empty = {
   titre: '',
@@ -18,6 +19,21 @@ const empty = {
   fifo_paiement: false,
   champs_personnalises: [],
 };
+
+function mapAdminFields(list) {
+  return (list || []).map((f) => ({
+    id: f.id,
+    label: f.label,
+    type: f.type || 'text',
+    required: !!f.required,
+    options: Array.isArray(f.options)
+      ? f.options
+      : String(f.options || '')
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+  }));
+}
 
 function paymentTime(r) {
   if (!r?.paiement_at) return Number.POSITIVE_INFINITY;
@@ -103,12 +119,13 @@ export default function ManageTrainings() {
   const [regsTrainingId, setRegsTrainingId] = useState(null);
   const [regsLoading, setRegsLoading] = useState(false);
   const [regsFields, setRegsFields] = useState([]);
-  const [firstN, setFirstN] = useState('');
-  const [onlyRetained, setOnlyRetained] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [regsSort, setRegsSort] = useState('inscription_asc');
   const [paymentBusyId, setPaymentBusyId] = useState(null);
   const [regsFifoPaiement, setRegsFifoPaiement] = useState(false);
+  const [selectedRegistrationIds, setSelectedRegistrationIds] = useState(() => new Set());
+  const [showChosenList, setShowChosenList] = useState(false);
+  const [downloadingList, setDownloadingList] = useState(false);
 
   const load = () =>
     api
@@ -141,14 +158,16 @@ export default function ManageTrainings() {
       payante: !!item.payante,
       prix: item.prix || '',
       fifo_paiement: !!item.fifo_paiement,
-      champs_personnalises: (item.champs_personnalises || []).map((f) => ({
-        id: f.id,
-        label: f.label,
-        type: f.type || 'text',
-        required: !!f.required,
-        options: Array.isArray(f.options) ? f.options.join(', ') : '',
-      })),
+      champs_personnalises: mapAdminFields(item.champs_personnalises),
     });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const addQuestion = () => {
+    setForm((f) => ({
+      ...f,
+      champs_personnalises: [...(f.champs_personnalises || []), createBlankQuestion()],
+    }));
   };
 
   const onSubmit = async (e) => {
@@ -211,9 +230,9 @@ export default function ManageTrainings() {
     setRegsFifoPaiement(!!item.payante && !!item.fifo_paiement);
     setRegsTrainingId(item.id);
     setRegsFields(item.champs_personnalises || []);
-    setFirstN('');
-    setOnlyRetained(false);
     setPaymentFilter('all');
+    setSelectedRegistrationIds(new Set());
+    setShowChosenList(false);
     setRegsSort(
       item.payante && item.fifo_paiement ? 'paiement_asc' : 'inscription_asc'
     );
@@ -253,12 +272,6 @@ export default function ManageTrainings() {
     }
   };
 
-  const retainLimit = useMemo(() => {
-    const n = Number(firstN);
-    if (!Number.isFinite(n) || n < 1) return null;
-    return Math.floor(n);
-  }, [firstN]);
-
   const paidSortedByDate = useMemo(() => {
     if (!regs) return [];
     return regs
@@ -291,12 +304,6 @@ export default function ManageTrainings() {
     return map;
   }, [rankedRegs]);
 
-  const retainEligibleCount = useMemo(() => {
-    if (!regs) return 0;
-    if (rankByPayment) return paidSortedByDate.length;
-    return regs.length;
-  }, [regs, rankByPayment, paidSortedByDate]);
-
   const displayedRegs = useMemo(() => {
     let list = rankedRegs;
 
@@ -304,13 +311,6 @@ export default function ManageTrainings() {
       list = list.filter((r) => !!r.paiement_valide);
     } else if (regsPaid && paymentFilter === 'non_valide') {
       list = list.filter((r) => !r.paiement_valide);
-    }
-    if (onlyRetained && retainLimit != null) {
-      list = list.filter((r) => {
-        if (rankByPayment && !r.paiement_valide) return false;
-        const rank = rankById.get(r.id);
-        return rank != null && rank <= retainLimit;
-      });
     }
 
     const sorted = list.slice();
@@ -320,16 +320,7 @@ export default function ManageTrainings() {
       sorted.sort((a, b) => compareByInscription(a, b, 1));
     }
     return sorted;
-  }, [
-    rankedRegs,
-    regsPaid,
-    paymentFilter,
-    onlyRetained,
-    retainLimit,
-    rankByPayment,
-    rankById,
-    regsSort,
-  ]);
+  }, [rankedRegs, regsPaid, paymentFilter, regsSort]);
 
   const paymentCounts = useMemo(() => {
     if (!regs || !regsPaid) return { valide: 0, non: 0 };
@@ -340,182 +331,406 @@ export default function ManageTrainings() {
     return { valide, non: regs.length - valide };
   }, [regs, regsPaid]);
 
+  const chosenRegs = useMemo(() => {
+    if (!regs?.length) return [];
+    return regs.filter((r) => selectedRegistrationIds.has(Number(r.id)));
+  }, [regs, selectedRegistrationIds]);
+
+  const toggleRegistration = (id) => {
+    const numId = Number(id);
+    setSelectedRegistrationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(numId)) next.delete(numId);
+      else next.add(numId);
+      return next;
+    });
+  };
+
+  const selectAllDisplayed = () => {
+    setSelectedRegistrationIds(new Set(displayedRegs.map((r) => Number(r.id))));
+  };
+
+  const clearRegistrationSelection = () => {
+    setSelectedRegistrationIds(new Set());
+  };
+
+  const downloadChosenListPdf = async () => {
+    if (!chosenRegs.length) {
+      setError('Aucun candidat choisi à télécharger.');
+      return;
+    }
+    setDownloadingList(true);
+    setError('');
+    try {
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      doc.setFontSize(16);
+      doc.text('ENISO Team — Liste des candidats choisis', 14, 18);
+      doc.setFontSize(11);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Formation : ${regsTitle || '—'}`, 14, 28);
+      doc.text(`Candidats : ${chosenRegs.length}`, 14, 34);
+      doc.setTextColor(0, 0, 0);
+
+      const head = [['#', 'Prénom', 'Nom']];
+      const body = chosenRegs.map((r, idx) => [
+        String(idx + 1),
+        r.prenom || '—',
+        r.nom || '—',
+      ]);
+
+      autoTable(doc, {
+        startY: 40,
+        head,
+        body,
+        styles: { fontSize: 8.5, cellPadding: 2 },
+        headStyles: { fillColor: [22, 57, 107], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 248, 252] },
+        margin: { left: 14, right: 14 },
+      });
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const safeTitle = String(regsTitle || 'formation')
+        .replace(/[^\w\-]+/g, '_')
+        .slice(0, 40);
+      doc.save(`candidats_choisis_${safeTitle}_${stamp}.pdf`);
+      setSuccess('Liste PDF téléchargée.');
+    } catch {
+      setError('Téléchargement PDF impossible.');
+    } finally {
+      setDownloadingList(false);
+    }
+  };
+
+  const overview = useMemo(() => {
+    const open = items.filter((i) => i.inscription_ouverte).length;
+    const candidates = items.reduce((sum, i) => sum + Number(i.inscriptions_count || 0), 0);
+    return { total: items.length, open, candidates };
+  }, [items]);
+
   if (loading) return <Loader />;
 
   return (
-    <div>
-      <header className="page-header">
-        <h1>Gérer les formations</h1>
+    <div className={styles.page}>
+      <header className={styles.hero}>
+        <div className={styles.heroGlow} aria-hidden="true" />
+        <p className={styles.eyebrow}>Secrétariat</p>
+        <h1>Formations</h1>
+        <p>Créez des formulaires d&apos;inscription au style Google Forms.</p>
       </header>
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
-      <form className="card form" onSubmit={onSubmit} style={{ marginBottom: '1.5rem' }}>
-        <h3>{editId ? 'Modifier' : 'Nouvelle formation'}</h3>
-        <div className="form-row two">
-          <div className="form-group">
-            <label>Titre</label>
-            <input value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} required />
-          </div>
-          <div className="form-group">
-            <label>Date</label>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-              min={dateMin}
-              required
-            />
-          </div>
+      <div className={styles.stats}>
+        <div className={styles.stat}>
+          <span>Formations</span>
+          <strong>{overview.total}</strong>
         </div>
-        <div className="form-group">
-          <label>Description</label>
+        <div className={styles.stat}>
+          <span>Inscriptions ouvertes</span>
+          <strong>{overview.open}</strong>
+        </div>
+        <div className={styles.stat}>
+          <span>Inscrits au total</span>
+          <strong>{overview.candidates}</strong>
+        </div>
+      </div>
+
+      <form className={styles.composer} onSubmit={onSubmit}>
+        <div className={styles.gformBanner}>
+          <p className={styles.gformBannerEyebrow}>ENISO Team · Admin</p>
+          <h2>{editId ? 'Modifier la formation' : 'Nouvelle formation'}</h2>
+          <p>
+            {editId
+              ? 'Mettez à jour les informations et les questions du formulaire.'
+              : 'Créez un formulaire d’inscription au style Google Forms.'}
+          </p>
+          {editId && <span className={styles.editBadge}>Mode édition</span>}
+        </div>
+
+        <div className={styles.gformCard}>
+          <label htmlFor="trn-titre">
+            Titre de la formation <span>*</span>
+          </label>
+          <input
+            id="trn-titre"
+            value={form.titre}
+            onChange={(e) => setForm({ ...form, titre: e.target.value })}
+            required
+            placeholder="Réponse courte"
+          />
+        </div>
+
+        <div className={styles.gformCard}>
+          <label htmlFor="trn-description">
+            Description <span>*</span>
+          </label>
           <textarea
+            id="trn-description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             required
+            placeholder="Réponse longue"
+            rows={4}
           />
         </div>
-        <div className="form-row two">
-          <div className="form-group">
-            <label>Formateur</label>
-            <input value={form.formateur} onChange={(e) => setForm({ ...form, formateur: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label>Niveau</label>
-            <select value={form.niveau} onChange={(e) => setForm({ ...form, niveau: e.target.value })}>
-              <option value="debutant">Débutant</option>
-              <option value="intermediaire">Intermédiaire</option>
-              <option value="avance">Avancé</option>
-            </select>
+
+        <div className={styles.gformCard}>
+          <label htmlFor="trn-date">
+            Date <span>*</span>
+          </label>
+          <input
+            id="trn-date"
+            type="date"
+            value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            min={dateMin}
+            required
+          />
+        </div>
+
+        <div className={styles.gformCard}>
+          <label htmlFor="trn-formateur">Formateur</label>
+          <input
+            id="trn-formateur"
+            value={form.formateur}
+            onChange={(e) => setForm({ ...form, formateur: e.target.value })}
+            placeholder="Réponse courte"
+          />
+        </div>
+
+        <div className={styles.gformCard}>
+          <p className={styles.gformQuestion}>Niveau</p>
+          <div className={styles.gformChoices}>
+            {[
+              { value: 'debutant', label: 'Débutant' },
+              { value: 'intermediaire', label: 'Intermédiaire' },
+              { value: 'avance', label: 'Avancé' },
+            ].map((opt) => (
+              <label key={opt.value} className={styles.gformChoice}>
+                <input
+                  type="radio"
+                  name="trn-niveau"
+                  checked={form.niveau === opt.value}
+                  onChange={() => setForm({ ...form, niveau: opt.value })}
+                />
+                {opt.label}
+              </label>
+            ))}
           </div>
         </div>
-        <div className="form-row two">
-          <div className="form-group">
-            <label>Lien ressources (membres)</label>
-            <input value={form.lien} onChange={(e) => setForm({ ...form, lien: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+
+        <div className={styles.gformCard}>
+          <label htmlFor="trn-lien">Lien ressources (membres)</label>
+          <input
+            id="trn-lien"
+            value={form.lien}
+            onChange={(e) => setForm({ ...form, lien: e.target.value })}
+            placeholder="https://…"
+          />
+        </div>
+
+        <div className={styles.gformCard}>
+          <p className={styles.gformQuestion}>Formation payante ?</p>
+          <div className={styles.gformChoices}>
+            <label className={styles.gformChoice}>
               <input
-                type="checkbox"
-                checked={form.payante}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    payante: e.target.checked,
-                    prix: e.target.checked ? form.prix : '',
-                    fifo_paiement: e.target.checked ? form.fifo_paiement : false,
-                  })
+                type="radio"
+                name="trn-payante"
+                checked={form.payante === true}
+                onChange={() => setForm({ ...form, payante: true })}
+              />
+              Payante
+            </label>
+            <label className={styles.gformChoice}>
+              <input
+                type="radio"
+                name="trn-payante"
+                checked={form.payante === false}
+                onChange={() =>
+                  setForm({ ...form, payante: false, prix: '', fifo_paiement: false })
                 }
               />
-              Formation payante
+              Gratuite
             </label>
           </div>
         </div>
+
         {form.payante && (
           <>
-            <div className="form-row two">
-              <div className="form-group">
-                <label>Montant (ex. 30 DT)</label>
-                <input
-                  value={form.prix}
-                  onChange={(e) => setForm({ ...form, prix: e.target.value })}
-                  required
-                  placeholder="30 DT"
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div className={styles.gformCard}>
+              <label htmlFor="trn-prix">
+                Montant (DT) <span>*</span>
+              </label>
+              <input
+                id="trn-prix"
+                value={form.prix}
+                onChange={(e) => setForm({ ...form, prix: e.target.value })}
+                placeholder="Ex. 30"
+                required
+              />
+            </div>
+            <div className={styles.gformCard}>
+              <p className={styles.gformQuestion}>Places FIFO par paiement ?</p>
+              <div className={styles.gformChoices}>
+                <label className={styles.gformChoice}>
                   <input
-                    type="checkbox"
-                    checked={form.fifo_paiement}
-                    onChange={(e) => setForm({ ...form, fifo_paiement: e.target.checked })}
+                    type="radio"
+                    name="trn-fifo"
+                    checked={form.fifo_paiement === true}
+                    onChange={() => setForm({ ...form, fifo_paiement: true })}
                   />
-                  Places FIFO par paiement
+                  Oui — premiers paiements validés
                 </label>
-                <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.35rem' }}>
-                  Les places sont attribuées aux premiers paiements validés (pas aux premières inscriptions).
-                </small>
+                <label className={styles.gformChoice}>
+                  <input
+                    type="radio"
+                    name="trn-fifo"
+                    checked={form.fifo_paiement === false}
+                    onChange={() => setForm({ ...form, fifo_paiement: false })}
+                  />
+                  Non
+                </label>
               </div>
+              <p className={styles.afficheHint}>
+                Les places sont attribuées aux premiers paiements validés (pas aux premières
+                inscriptions).
+              </p>
             </div>
           </>
         )}
 
-        <hr style={{ margin: '1rem 0', border: 0, borderTop: '1px solid var(--border, #ddd)' }} />
-        <FormQuestionPicker
-          value={form.champs_personnalises}
-          onChange={(champs_personnalises) => setForm({ ...form, champs_personnalises })}
-        />
+        <div className={styles.gformSection}>
+          <div className={styles.gformSectionHead}>
+            <div>
+              <h3>Questions du formulaire</h3>
+              <p>Ajoutez les questions que les candidats devront remplir à l’inscription.</p>
+            </div>
+            <button
+              type="button"
+              className={styles.gformAddBtn}
+              onClick={addQuestion}
+              aria-label="Ajouter une question"
+            >
+              +
+            </button>
+          </div>
+          <GoogleFormBuilder
+            value={form.champs_personnalises}
+            onChange={(champs_personnalises) => setForm((f) => ({ ...f, champs_personnalises }))}
+          />
+        </div>
 
-        <div className="actions">
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Enregistrement…' : editId ? 'Mettre à jour' : 'Créer'}
-          </button>
+        <div className={styles.gformActions}>
           {editId && (
-            <button type="button" className="btn btn-secondary" onClick={reset}>
+            <button type="button" className={styles.gformClear} onClick={reset}>
               Annuler
             </button>
           )}
+          <div className={styles.gformActionsRight}>
+            <button type="submit" className={styles.gformSubmit} disabled={saving}>
+              {saving ? 'Enregistrement…' : editId ? 'Mettre à jour' : 'Créer le formulaire'}
+            </button>
+          </div>
         </div>
       </form>
 
-      <div className="table-wrap card">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Titre</th>
-              <th>Niveau</th>
-              <th>Prix</th>
-              <th>Inscrits</th>
-              <th>Inscriptions</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <section className={styles.listPanel}>
+        <div className={styles.listHead}>
+          <h2>Formations publiées</h2>
+          <span className={`${styles.chip} ${styles.chipMuted}`}>
+            {items.length} au total
+          </span>
+        </div>
+        {!items.length ? (
+          <p className={styles.empty}>Aucune formation pour le moment.</p>
+        ) : (
+          <div className={styles.tripGrid}>
             {items.map((item) => (
-              <tr key={item.id}>
-                <td>{item.date ? new Date(item.date).toLocaleDateString('fr-FR') : '—'}</td>
-                <td>{item.titre}</td>
-                <td>{item.niveau}</td>
-                <td>{item.payante ? item.prix || 'Payante' : 'Gratuite'}</td>
-                <td>
-                  {Number(item.inscriptions_count || 0)}
-                  {item.payante && item.fifo_paiement ? (
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>FIFO paiement</div>
-                  ) : null}
-                </td>
-                <td>
+              <article key={item.id} className={styles.tripCard}>
+                <div className={styles.tripTop}>
+                  <div>
+                    <div className={styles.tripMeta}>
+                      <span className={styles.chip}>{item.niveau || '—'}</span>
+                      <span
+                        className={`${styles.chip} ${
+                          item.inscription_ouverte ? styles.chipOk : styles.chipClosed
+                        }`}
+                      >
+                        {item.inscription_ouverte ? 'Ouvert' : 'Fermé'}
+                      </span>
+                      {item.payante && item.fifo_paiement ? (
+                        <span className={`${styles.chip} ${styles.chipMuted}`}>FIFO paiement</span>
+                      ) : null}
+                    </div>
+                    <h3>{item.titre}</h3>
+                    <p>{item.description}</p>
+                  </div>
+                </div>
+                <div className={styles.tripFacts}>
+                  <span>
+                    Date{' '}
+                    <strong>
+                      {item.date ? new Date(item.date).toLocaleDateString('fr-FR') : '—'}
+                    </strong>
+                  </span>
+                  <span>
+                    Prix{' '}
+                    <strong>
+                      {item.payante
+                        ? `${item.prix || '—'}${item.prix && !/dt/i.test(String(item.prix)) ? ' DT' : ''}`
+                        : 'Gratuit'}
+                    </strong>
+                  </span>
+                  <span>
+                    Questions <strong>{(item.champs_personnalises || []).length}</strong>
+                  </span>
+                  <span>
+                    Inscrits <strong>{Number(item.inscriptions_count || 0)}</strong>
+                  </span>
+                </div>
+                <div className={styles.tripActions}>
                   <button
                     type="button"
-                    className={`btn btn-sm ${item.inscription_ouverte ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`btn btn-sm ${
+                      item.inscription_ouverte ? 'btn-primary' : 'btn-secondary'
+                    }`}
                     onClick={() => toggleInscription(item)}
                   >
-                    {item.inscription_ouverte ? 'Ouvert' : 'Fermé'}
+                    {item.inscription_ouverte ? 'Fermer inscriptions' : 'Ouvrir inscriptions'}
                   </button>
-                </td>
-                <td className="actions">
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
                     onClick={() => openRegs(item)}
                     disabled={regsLoading}
                   >
-                    Voir les inscrits à cette formation ({Number(item.inscriptions_count || 0)})
+                    Inscrits ({Number(item.inscriptions_count || 0)})
                   </button>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => onEdit(item)}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => onEdit(item)}
+                  >
                     Éditer
                   </button>
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => onDelete(item.id)}>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    onClick={() => onDelete(item.id)}
+                  >
                     Supprimer
                   </button>
-                </td>
-              </tr>
+                </div>
+              </article>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        )}
+      </section>
 
       {(regs || regsLoading) && (
         <div
@@ -537,10 +752,10 @@ export default function ManageTrainings() {
                 setRegsTitle('');
                 setRegsTrainingId(null);
                 setRegsFifoPaiement(false);
-                setFirstN('');
-                setOnlyRetained(false);
                 setPaymentFilter('all');
                 setRegsSort('inscription_asc');
+                setSelectedRegistrationIds(new Set());
+                setShowChosenList(false);
               }}
             >
               Fermer
@@ -552,53 +767,6 @@ export default function ManageTrainings() {
             <p className="empty">Aucune inscription pour le moment. Les personnes qui remplissent le formulaire apparaîtront ici.</p>
           ) : (
             <>
-              <div
-                className="form-row two"
-                style={{ marginBottom: '0.85rem', alignItems: 'end' }}
-              >
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>
-                    {rankByPayment
-                      ? 'Retenir les N premiers paiements'
-                      : 'Retenir les N premiers inscrits'}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={firstN}
-                    onChange={(e) => setFirstN(e.target.value)}
-                    placeholder={`Ex. ${Math.min(20, Math.max(1, retainEligibleCount || regs.length))}`}
-                  />
-                  <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '0.35rem' }}>
-                    {rankByPayment
-                      ? 'Ordre FIFO sur la date de validation du paiement. Sans paiement validé = liste d’attente.'
-                      : 'Ordre d’arrivée (date d’inscription). Les premiers remplissent la formation.'}
-                  </small>
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={onlyRetained}
-                      disabled={retainLimit == null}
-                      onChange={(e) => setOnlyRetained(e.target.checked)}
-                    />
-                    Afficher seulement les retenus
-                  </label>
-                  {retainLimit != null && (
-                    <p style={{ margin: '0.4rem 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                      {Math.min(retainLimit, retainEligibleCount)} retenu
-                      {Math.min(retainLimit, retainEligibleCount) > 1 ? 's' : ''}
-                      {retainEligibleCount > retainLimit
-                        ? ` · ${retainEligibleCount - retainLimit} en liste d’attente`
-                        : ''}
-                      {rankByPayment && paymentCounts.non
-                        ? ` · ${paymentCounts.non} sans paiement validé`
-                        : ''}
-                    </p>
-                  )}
-                </div>
-              </div>
               <div
                 className="form-row two"
                 style={{ marginBottom: '0.85rem', alignItems: 'end' }}
@@ -637,12 +805,43 @@ export default function ManageTrainings() {
                   <div className="form-group" style={{ marginBottom: 0 }} />
                 )}
               </div>
+              <div className={styles.filters} style={{ marginBottom: '0.85rem' }}>
+                <div className={styles.listActions}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={selectAllDisplayed}
+                  >
+                    Tout sélectionner
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={clearRegistrationSelection}
+                  >
+                    Tout désélectionner
+                  </button>
+                  <span className={styles.selectionCount}>
+                    {selectedRegistrationIds.size} sélectionné
+                    {selectedRegistrationIds.size > 1 ? 's' : ''}
+                    {' · '}
+                    {displayedRegs.length} affiché{displayedRegs.length > 1 ? 's' : ''}
+                  </span>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${showChosenList ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setShowChosenList((v) => !v)}
+                  >
+                    Liste des candidats choisis ({chosenRegs.length})
+                  </button>
+                </div>
+              </div>
               <div className="table-wrap">
                 <table>
                   <thead>
                     <tr>
+                      <th className={styles.checkCol} aria-label="Sélection" />
                       <th>#</th>
-                      <th>Statut</th>
                       <th>Prénom</th>
                       <th>Nom</th>
                       <th>Email</th>
@@ -668,29 +867,17 @@ export default function ManageTrainings() {
                     ) : (
                       displayedRegs.map((r) => {
                         const rank = rankById.get(r.id) || '—';
-                        const canRetain = !rankByPayment || !!r.paiement_valide;
-                        const retained =
-                          retainLimit == null || !canRetain
-                            ? null
-                            : Number(rank) <= retainLimit;
                         return (
                           <tr key={r.id}>
-                            <td>{rank}</td>
-                            <td>
-                              {retainLimit == null ? (
-                                rankByPayment && !r.paiement_valide ? (
-                                  <span className="badge">Sans paiement</span>
-                                ) : (
-                                  '—'
-                                )
-                              ) : retained ? (
-                                <span className="badge badge-accent">Retenu</span>
-                              ) : rankByPayment && !r.paiement_valide ? (
-                                <span className="badge">Sans paiement</span>
-                              ) : (
-                                <span className="badge">Liste d&apos;attente</span>
-                              )}
+                            <td className={styles.checkCol}>
+                              <input
+                                type="checkbox"
+                                checked={selectedRegistrationIds.has(Number(r.id))}
+                                onChange={() => toggleRegistration(r.id)}
+                                aria-label={`Sélectionner ${r.prenom} ${r.nom}`}
+                              />
                             </td>
+                            <td>{rank}</td>
                             <td>{r.prenom}</td>
                             <td>{r.nom}</td>
                             <td>{r.email}</td>
@@ -743,6 +930,69 @@ export default function ManageTrainings() {
                   </tbody>
                 </table>
               </div>
+
+              {showChosenList && (
+                <div className={styles.listBlock} style={{ marginTop: '1rem' }}>
+                  <div className={styles.listHead}>
+                    <div className={styles.listHeadRow}>
+                      <div>
+                        <h3>Liste des candidats choisis ({chosenRegs.length})</h3>
+                        <p>
+                          Cochez les inscrits dans le tableau, puis téléchargez la liste en PDF.
+                        </p>
+                      </div>
+                      <div className={styles.listActions}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={downloadChosenListPdf}
+                          disabled={downloadingList || !chosenRegs.length}
+                        >
+                          {downloadingList ? 'Export…' : 'Télécharger PDF'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {chosenRegs.length ? (
+                    <div className={styles.tableWrap}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Prénom</th>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Téléphone</th>
+                            <th>Filière</th>
+                            <th>Niveau</th>
+                            {regsPaid && <th>Paiement</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chosenRegs.map((r, idx) => (
+                            <tr key={r.id}>
+                              <td>{idx + 1}</td>
+                              <td>{r.prenom || '—'}</td>
+                              <td>
+                                <strong>{r.nom || '—'}</strong>
+                              </td>
+                              <td>{r.email || '—'}</td>
+                              <td>{r.telephone || '—'}</td>
+                              <td>{r.filiere || '—'}</td>
+                              <td>{r.annee || '—'}</td>
+                              {regsPaid && (
+                                <td>{r.paiement_valide ? 'Validé' : 'Non validé'}</td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className={styles.empty}>Aucun candidat sélectionné pour le moment.</p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

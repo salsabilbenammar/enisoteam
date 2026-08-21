@@ -13,7 +13,29 @@ export const FORM_QUESTION_CATEGORIES = [
 ];
 
 /** Banque de questions prêtes à cocher / intégrer dans les formulaires. */
+export const DEFAULT_EVENT_FIELDS = [
+  { id: 'prenom', label: 'Prénom', type: 'text', required: true, options: '' },
+  { id: 'nom', label: 'Nom', type: 'text', required: true, options: '' },
+  { id: 'email', label: 'Email', type: 'text', required: true, options: '' },
+  { id: 'telephone', label: 'Téléphone', type: 'text', required: true, options: '' },
+  {
+    id: 'filiere',
+    label: 'Quelle filière ?',
+    type: 'select',
+    required: true,
+    options: 'EI, MECA, IA, GTE, GMP, ASE, Mastère',
+  },
+  {
+    id: 'annee',
+    label: "Niveau d'études",
+    type: 'select',
+    required: false,
+    options: '1ère année, 2ème année, 3ème année, Mastère',
+  },
+];
+
 export const FORM_QUESTION_BANK = [
+  ...DEFAULT_EVENT_FIELDS.map((f) => ({ ...f, category: 'personal' })),
   // 1. Personal Information
   {
     id: 'q_full_name',

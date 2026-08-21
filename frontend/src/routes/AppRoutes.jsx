@@ -30,13 +30,22 @@ import ManageEvents from '../pages/admin/ManageEvents';
 import ManageRH from '../pages/admin/ManageRH';
 import ManageRecruitment from '../pages/admin/ManageRecruitment';
 import ManageFinance from '../pages/admin/ManageFinance';
+import ManageDeplacements from '../pages/admin/ManageDeplacements';
 import ManageProjects from '../pages/admin/ManageProjects';
+import ManagePvReunions from '../pages/admin/ManagePvReunions';
+import ManageAttendanceLists from '../pages/admin/ManageAttendanceLists';
+import ManageLogistique from '../pages/admin/ManageLogistique';
 import ManageClubInfo from '../pages/admin/ManageClubInfo';
 import ManageContact from '../pages/admin/ManageContact';
+import Deplacements from '../pages/public/Deplacements';
+import MerchandiseOrder from '../pages/public/MerchandiseOrder';
+import PresenceKiosk from '../pages/public/PresenceKiosk';
 
 export default function AppRoutes() {
   return (
     <Routes>
+      <Route path="presence/:token" element={<PresenceKiosk />} />
+
       <Route element={<PublicLayout />}>
         <Route index element={<Home />} />
         <Route path="about" element={<About />} />
@@ -45,6 +54,7 @@ export default function AppRoutes() {
         <Route path="events" element={<Events />} />
         <Route path="events/:id/inscription" element={<ActivityInscription type="events" />} />
         <Route path="announcements" element={<Announcements />} />
+        <Route path="deplacements" element={<Deplacements />} />
         <Route path="projets" element={<Projects />} />
         <Route path="candidature" element={<Candidature />} />
         <Route path="candidature-media" element={<Candidature stream="media_babies" />} />
@@ -57,6 +67,11 @@ export default function AppRoutes() {
           <Route path="selection-projets" element={<ProjectSelection />} />
           <Route path="mes-projets" element={<MyProjects />} />
           <Route path="trainings/:id/inscription" element={<ActivityInscription type="trainings" />} />
+          <Route
+            path="deplacements/:id/inscription"
+            element={<ActivityInscription type="deplacements" />}
+          />
+          <Route path="boutique/:variant" element={<MerchandiseOrder />} />
         </Route>
       </Route>
 
@@ -72,7 +87,11 @@ export default function AppRoutes() {
           <Route path="events" element={<ManageEvents />} />
           <Route path="recruitment" element={<ManageRecruitment />} />
           <Route path="finance" element={<ManageFinance />} />
+          <Route path="deplacements" element={<ManageDeplacements />} />
           <Route path="projects" element={<ManageProjects />} />
+          <Route path="logistique" element={<ManageLogistique />} />
+          <Route path="pv-reunions" element={<ManagePvReunions />} />
+          <Route path="listes-presence" element={<ManageAttendanceLists />} />
           <Route path="rh" element={<ManageRH />} />
           <Route path="club-info" element={<ManageClubInfo />} />
           <Route path="contact" element={<ManageContact />} />

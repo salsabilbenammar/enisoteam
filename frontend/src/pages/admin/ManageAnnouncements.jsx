@@ -4,7 +4,15 @@ import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import { defaultDateMin, minSelectableDate } from '../../utils/dateLimits';
 
-const empty = { titre: '', contenu: '', date_publication: '', lien_formulaire: '', image: null };
+const empty = {
+  titre: '',
+  contenu: '',
+  date_publication: '',
+  salle: '',
+  heure: '',
+  lien_formulaire: '',
+  image: null,
+};
 
 export default function ManageAnnouncements() {
   const confirm = useConfirm();
@@ -41,6 +49,8 @@ export default function ManageAnnouncements() {
       titre: item.titre,
       contenu: item.contenu,
       date_publication,
+      salle: item.salle || '',
+      heure: item.heure ? String(item.heure).slice(0, 5) : '',
       lien_formulaire: item.lien_formulaire || '',
       image: null,
     });
@@ -57,6 +67,8 @@ export default function ManageAnnouncements() {
     data.append('titre', form.titre);
     data.append('contenu', form.contenu);
     data.append('date_publication', form.date_publication);
+    data.append('salle', form.salle.trim());
+    data.append('heure', form.heure.trim());
     data.append('lien_formulaire', form.lien_formulaire.trim());
     if (form.image) data.append('image', form.image);
 
@@ -118,6 +130,24 @@ export default function ManageAnnouncements() {
             />
           </div>
         </div>
+        <div className="form-row two">
+          <div className="form-group">
+            <label>Salle (optionnel)</label>
+            <input
+              value={form.salle}
+              onChange={(e) => setForm({ ...form, salle: e.target.value })}
+              placeholder="Ex. Amphi A"
+            />
+          </div>
+          <div className="form-group">
+            <label>Heure (optionnel)</label>
+            <input
+              type="time"
+              value={form.heure}
+              onChange={(e) => setForm({ ...form, heure: e.target.value })}
+            />
+          </div>
+        </div>
         <div className="form-group">
           <label>Contenu</label>
           <textarea
@@ -157,6 +187,8 @@ export default function ManageAnnouncements() {
             <tr>
               <th>Date</th>
               <th>Titre</th>
+              <th>Salle</th>
+              <th>Heure</th>
               <th>Image</th>
               <th>Formulaire</th>
               <th>Actions</th>
@@ -167,6 +199,12 @@ export default function ManageAnnouncements() {
               <tr key={item.id}>
                 <td>{new Date(item.date_publication).toLocaleDateString('fr-FR')}</td>
                 <td>{item.titre}</td>
+                <td>{item.salle || '—'}</td>
+                <td>
+                  {item.heure
+                    ? String(item.heure).slice(0, 5)
+                    : '—'}
+                </td>
                 <td>
                   {item.image ? (
                     <img src={assetUrl(item.image)} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} />

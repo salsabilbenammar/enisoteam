@@ -109,6 +109,7 @@ async function remove(id, adminNom = null) {
   const existing = await findById(id);
   if (!existing) return false;
   await addLog(id, 'delete', snapshotOf(existing), adminNom);
+  await pool.execute(`DELETE FROM finance_transaction_logs WHERE transaction_id = ?`, [id]);
   const [result] = await pool.execute(`DELETE FROM finance_transactions WHERE id = ?`, [id]);
   return result.affectedRows > 0;
 }

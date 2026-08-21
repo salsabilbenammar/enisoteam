@@ -1,23 +1,26 @@
 const pool = require('../config/db');
-const { normalizeEvent, normalizeCustomFields } = require('./activityRegistrationModel');
+const {
+  normalizeEvent,
+  normalizeFormAudience,
+  audienceAllowsGroup,
+  serializeEventFields,
+} = require('./activityRegistrationModel');
 
 function serializeFormConfig(data) {
-  const type =
-    data.formulaire_type === 'avec_accompagnants' ? 'avec_accompagnants' : 'individuel';
+  const type = normalizeFormAudience(data.formulaire_type);
   let min = Math.max(0, Number(data.accompagnants_min) || 0);
   let max = Math.max(0, Number(data.accompagnants_max) || 0);
-  if (type !== 'avec_accompagnants') {
+  if (!audienceAllowsGroup(type)) {
     min = 0;
     max = 0;
   } else if (max < min) {
     max = min;
   }
-  const fields = normalizeCustomFields(data.champs_personnalises);
   return {
     formulaire_type: type,
     accompagnants_min: min,
     accompagnants_max: max,
-    champs_personnalises: JSON.stringify(fields),
+    champs_personnalises: serializeEventFields(data),
   };
 }
 
@@ -50,12 +53,14 @@ async function getById(id) {
 
 async function create(data) {
   const form = serializeFormConfig(data);
+  const payant = data.payant ? 1 : 0;
+  const prix = payant && data.prix ? String(data.prix).trim() : null;
   try {
     const [result] = await pool.execute(
       `INSERT INTO events
-        (titre, description, date, lieu, image, statut, inscription_ouverte,
+        (titre, description, date, lieu, image, statut, inscription_ouverte, payant, prix,
          formulaire_type, accompagnants_min, accompagnants_max, champs_personnalises)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.titre,
         data.description,
@@ -64,6 +69,8 @@ async function create(data) {
         data.image || null,
         data.statut || 'a_venir',
         data.inscription_ouverte ? 1 : 0,
+        payant,
+        prix,
         form.formulaire_type,
         form.accompagnants_min,
         form.accompagnants_max,
@@ -75,8 +82,10 @@ async function create(data) {
     if (err.code !== 'ER_BAD_FIELD_ERROR') throw err;
     try {
       const [result] = await pool.execute(
-        `INSERT INTO events (titre, description, date, lieu, image, statut, inscription_ouverte)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO events
+          (titre, description, date, lieu, image, statut, inscription_ouverte,
+           formulaire_type, accompagnants_min, accompagnants_max, champs_personnalises)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.titre,
           data.description,
@@ -85,6 +94,10 @@ async function create(data) {
           data.image || null,
           data.statut || 'a_venir',
           data.inscription_ouverte ? 1 : 0,
+          form.formulaire_type,
+          form.accompagnants_min,
+          form.accompagnants_max,
+          form.champs_personnalises,
         ]
       );
       return getById(result.insertId);
@@ -135,12 +148,17 @@ async function update(id, data) {
         ? data.champs_personnalises
         : existing.champs_personnalises,
   });
+  const payant =
+    data.payant !== undefined ? (data.payant ? 1 : 0) : existing.payant ? 1 : 0;
+  const prixRaw = data.prix !== undefined ? data.prix : existing.prix;
+  const prix = payant && prixRaw ? String(prixRaw).trim() : null;
 
   try {
     await pool.execute(
       `UPDATE events
        SET titre = ?, description = ?, date = ?, lieu = ?, image = ?, statut = ?,
-           inscription_ouverte = ?, formulaire_type = ?, accompagnants_min = ?,
+           inscription_ouverte = ?, payant = ?, prix = ?,
+           formulaire_type = ?, accompagnants_min = ?,
            accompagnants_max = ?, champs_personnalises = ?
        WHERE id = ?`,
       [
@@ -151,6 +169,8 @@ async function update(id, data) {
         image,
         data.statut || 'a_venir',
         open,
+        payant,
+        prix,
         form.formulaire_type,
         form.accompagnants_min,
         form.accompagnants_max,
@@ -164,7 +184,8 @@ async function update(id, data) {
       await pool.execute(
         `UPDATE events
          SET titre = ?, description = ?, date = ?, lieu = ?, image = ?, statut = ?,
-             inscription_ouverte = ?
+             inscription_ouverte = ?, formulaire_type = ?, accompagnants_min = ?,
+             accompagnants_max = ?, champs_personnalises = ?
          WHERE id = ?`,
         [
           data.titre,
@@ -174,6 +195,10 @@ async function update(id, data) {
           image,
           data.statut || 'a_venir',
           open,
+          form.formulaire_type,
+          form.accompagnants_min,
+          form.accompagnants_max,
+          form.champs_personnalises,
           id,
         ]
       );
@@ -223,4 +248,48 @@ async function remove(id) {
   return result.affectedRows > 0;
 }
 
-module.exports = { getAll, getById, create, update, setInscriptionOpen, remove };
+async function saveListeFinale(id, payload) {
+  const personnes = Array.isArray(payload?.personnes) ? payload.personnes : [];
+  const registrationIds = Array.isArray(payload?.registration_ids)
+    ? payload.registration_ids.map((x) => Number(x)).filter((n) => Number.isFinite(n))
+    : [];
+  const cleaned = personnes.map((row, index) => ({
+    id: Number(row?.id) || registrationIds[index] || index + 1,
+    fullName: String(row?.fullName || '').trim(),
+    prenom: String(row?.prenom || '').trim(),
+    nom: String(row?.nom || '').trim(),
+    email: String(row?.email || '').trim(),
+    telephone: String(row?.telephone || '').trim(),
+    filiere: String(row?.filiere || '').trim(),
+    type: String(row?.type || '').trim(),
+    groupMembers: String(row?.groupMembers || '').trim(),
+    groupSize: Number(row?.groupSize) || 1,
+  }));
+  const data = JSON.stringify({
+    personnes: cleaned,
+    registration_ids: registrationIds.length
+      ? registrationIds
+      : cleaned.map((p) => p.id).filter(Boolean),
+  });
+  try {
+    const [result] = await pool.execute(
+      `UPDATE events
+       SET liste_finale = ?, liste_finale_at = NOW()
+       WHERE id = ?`,
+      [data, id]
+    );
+    if (!result.affectedRows) return null;
+    return getById(id);
+  } catch (err) {
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      const e = new Error(
+        'Colonne liste_finale absente. Exécutez database/migrate_event_liste_finale.js'
+      );
+      e.status = 503;
+      throw e;
+    }
+    throw err;
+  }
+}
+
+module.exports = { getAll, getById, create, update, setInscriptionOpen, remove, saveListeFinale };

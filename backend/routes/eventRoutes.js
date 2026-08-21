@@ -8,6 +8,13 @@ const upload = uploadImage('events').single('image');
 
 router.get('/', eventController.getAll);
 router.get('/:id/registrations', requireAdmin, eventController.listRegistrations);
+router.put('/:id/liste-finale', requireAdmin, eventController.saveListeFinale);
+router.post('/:id/send-selection-emails', requireAdmin, eventController.sendSelectionEmails);
+router.patch(
+  '/:id/registrations/:registrationId/paiement',
+  requireAdmin,
+  eventController.setRegistrationPayment
+);
 router.post('/:id/register', eventController.register);
 router.patch('/:id/inscription', requireAdmin, eventController.setInscriptionOpen);
 router.get('/:id', eventController.getById);

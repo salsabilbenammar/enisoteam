@@ -1,0 +1,430 @@
+/* Form layout for activity / car inscriptions */
+
+.page {
+  position: relative;
+  min-height: 100vh;
+  padding: 2rem 0 4rem;
+  background:
+    radial-gradient(820px 460px at 10% -8%, rgba(77, 163, 255, 0.26), transparent 62%),
+    radial-gradient(680px 420px at 95% 4%, rgba(34, 211, 238, 0.16), transparent 64%),
+    linear-gradient(180deg, #0b2244 0%, #16396b 48%, #0a1e39 100%);
+}
+
+.wrap {
+  position: relative;
+  max-width: 680px;
+}
+
+/* ---------- Banner ---------- */
+
+.banner {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 1rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #08172c;
+  box-shadow: 0 22px 50px rgba(3, 12, 28, 0.45);
+  animation: rise 0.45s ease both;
+}
+
+.bannerAffiche {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 320px;
+  margin: 0;
+  border: none;
+  object-fit: contain;
+  object-position: center;
+  background: #08172c;
+}
+
+/* ---------- Cards ---------- */
+
+.introCard,
+.fieldCard,
+.sectionCard {
+  background: #fff;
+  color: #1f2430;
+  border-radius: 14px;
+  border: none;
+  box-shadow: 0 10px 26px rgba(4, 15, 35, 0.2);
+  padding: 1.4rem 1.6rem 1.3rem;
+  margin-bottom: 0.8rem;
+  animation: rise 0.45s ease both;
+}
+
+.fieldCard {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.fieldCard:hover,
+.fieldCard:focus-within {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(4, 15, 35, 0.28);
+}
+
+.introCard {
+  position: relative;
+  overflow: hidden;
+  padding-left: 1.75rem;
+}
+
+.introCard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: linear-gradient(180deg, #1a73e8, #22d3ee);
+}
+
+.introCard h1 {
+  margin: 0 0 0.6rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid #eceff3;
+  font-size: clamp(1.4rem, 3.2vw, 1.8rem);
+  font-weight: 600;
+  color: #0f2b52;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.32;
+}
+
+.introMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.85rem !important;
+  color: #5f6368 !important;
+  font-size: 0.88rem !important;
+}
+
+.introCard p {
+  margin: 0 0 0.8rem;
+  line-height: 1.6;
+  color: #3b4657;
+  font-size: 0.95rem;
+}
+
+.introCard p:last-child {
+  margin-bottom: 0;
+}
+
+.introNote {
+  padding: 0.75rem 0.95rem;
+  border-radius: 10px;
+  border-left: 3px solid #f0b429;
+  background: #fff8e6;
+  color: #6b5310 !important;
+  font-size: 0.9rem !important;
+}
+
+.cta {
+  margin-top: 0.95rem !important;
+}
+
+.cta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #1a73e8;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.cta a:hover {
+  text-decoration: underline;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Questions & inputs ---------- */
+
+.fieldCard label,
+.question {
+  display: block;
+  margin: 0 0 0.9rem;
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: #1f2430;
+  line-height: 1.45;
+}
+
+.fieldCard label span,
+.question span {
+  color: #d93025;
+}
+
+.fieldCard input[type='text'],
+.fieldCard input[type='email'],
+.fieldCard input[type='tel'],
+.fieldCard input[type='number'],
+.fieldCard input[type='date'],
+.fieldCard input:not([type]),
+.fieldCard textarea,
+.fieldCard select {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #dfe3ea;
+  border-radius: 10px;
+  background: #f7f9fc;
+  color: #1f2430;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.fieldCard input::placeholder,
+.fieldCard textarea::placeholder {
+  color: #9aa4b2;
+}
+
+.fieldCard input:focus,
+.fieldCard textarea:focus,
+.fieldCard select:focus {
+  outline: none;
+  background: #fff;
+  border-color: #4da3ff;
+  box-shadow: 0 0 0 3px rgba(77, 163, 255, 0.2);
+}
+
+.fieldCard textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.choice {
+  display: flex !important;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 !important;
+  padding: 0.62rem 0.9rem;
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  background: #fbfcfe;
+  font-weight: 400 !important;
+  font-size: 0.95rem !important;
+  color: #1f2430 !important;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.choice:hover {
+  border-color: #c6d6ea;
+  background: #f2f7ff;
+}
+
+.choice:has(input:checked) {
+  border-color: #4da3ff;
+  background: #eaf3ff;
+  font-weight: 500 !important;
+}
+
+.choice input[type='radio'],
+.choice input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  accent-color: #1a73e8;
+  flex-shrink: 0;
+}
+
+.roleHint {
+  margin: 0.9rem 0 0;
+  color: #6b7688;
+  font-size: 0.86rem;
+}
+
+/* ---------- Section separator ---------- */
+
+.sectionCard {
+  background: linear-gradient(135deg, #0f2b52, #16396b);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 30px rgba(4, 15, 35, 0.3);
+  padding: 1.15rem 1.45rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.sectionCard p {
+  margin: 0;
+  color: rgba(226, 238, 255, 0.85);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.checkRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0 !important;
+  font-weight: 400 !important;
+  cursor: pointer;
+  color: #1f2430 !important;
+}
+
+.checkRow input {
+  margin-top: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: #1a73e8;
+  flex-shrink: 0;
+}
+
+/* ---------- Actions ---------- */
+
+.actions {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.85rem 0 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 34px rgba(4, 15, 35, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.submit {
+  appearance: none;
+  border: none;
+  background: linear-gradient(135deg, #1a73e8, #0d47a1);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(26, 115, 232, 0.32);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 26px rgba(26, 115, 232, 0.4);
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.clearBtn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #1a73e8;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+}
+
+.clearBtn:hover {
+  background: rgba(26, 115, 232, 0.1);
+}
+
+/* ---------- Alerts ---------- */
+
+.wrap :global(.alert) {
+  border-radius: 12px;
+  backdrop-filter: none;
+}
+
+.wrap :global(.alert-error) {
+  background: #fdecea;
+  border-color: #f5c2c0;
+  color: #a4231d;
+}
+
+.wrap :global(.alert-success) {
+  background: #e7f5ec;
+  border-color: #b7e0c4;
+  color: #1a6b3c;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner,
+  .introCard,
+  .fieldCard,
+  .sectionCard {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 1rem 0 2.5rem;
+  }
+
+  .banner {
+    border-radius: 14px;
+  }
+
+  .introCard,
+  .fieldCard,
+  .sectionCard {
+    padding: 1.15rem 1.05rem;
+    border-radius: 12px;
+  }
+
+  .introCard {
+    padding-left: 1.4rem;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    bottom: 0.5rem;
+  }
+
+  .submit {
+    width: 100%;
+  }
+}

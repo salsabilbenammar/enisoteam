@@ -1,3 +1,8 @@
+const {
+  DEFAULT_MAIL_PAIEMENT_SUJET,
+  DEFAULT_MAIL_PAIEMENT_CORPS,
+} = require('../models/financeSettingsModel');
+
 function applyMailPlaceholders(template, vars = {}) {
   let out = String(template || '');
   for (const [key, value] of Object.entries(vars)) {
@@ -26,13 +31,34 @@ function formatMoney(amount, devise = 'DT') {
 
 function formatDateFr(dateStr) {
   if (!dateStr) return '—';
-  const d = new Date(String(dateStr).slice(0, 10));
-  if (Number.isNaN(d.getTime())) return String(dateStr).slice(0, 10);
-  return d.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
+  if (dateStr instanceof Date && !Number.isNaN(dateStr.getTime())) {
+    return dateStr.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+  const raw = String(dateStr);
+  const match = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+  }
+  const fallback = new Date(raw);
+  if (!Number.isNaN(fallback.getTime())) {
+    return fallback.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+  return raw.slice(0, 10);
 }
 
 function buildCotisationPaymentEmail({
@@ -45,8 +71,6 @@ function buildCotisationPaymentEmail({
 }) {
   const devise = settings.devise || 'DT';
   const nom = member?.nom || 'Membre';
-  const detailLine = detailLabel ? `\nDétail : ${detailLabel}` : '';
-  const noteLine = payment?.note ? `\nNote : ${payment.note}` : '';
 
   const vars = {
     Nom: nom,
@@ -60,29 +84,18 @@ function buildCotisationPaymentEmail({
     Note: payment?.note || '—',
   };
 
-  const subject = applyMailPlaceholders(
-    'Confirmation de paiement — [Type] [Annee]',
-    vars
-  );
+  const subjectTemplate =
+    String(settings.mail_paiement_sujet || '').trim() || DEFAULT_MAIL_PAIEMENT_SUJET;
+  const bodyTemplate =
+    String(settings.mail_paiement_corps || '').trim() || DEFAULT_MAIL_PAIEMENT_CORPS;
 
-  const bodyTemplate = `Bonjour [Nom],
-
-Nous confirmons la réception de votre paiement enregistré par le trésorier ENISO Team.
-
-Type de cotisation : [Type]
-Année : [Annee]
-Montant : [Montant]
-Date du paiement : [DatePaiement]
-Méthode : [Methode]${detailLine}${noteLine}
-
-Conservez cet email comme justificatif. Pour toute question, contactez le trésorier du club.
-
-— ENISO Team`;
-
+  const subject = applyMailPlaceholders(subjectTemplate, vars);
   const text = applyMailPlaceholders(bodyTemplate, vars);
   return { subject, text, html: textToHtml(text) };
 }
 
 module.exports = {
   buildCotisationPaymentEmail,
+  DEFAULT_MAIL_PAIEMENT_SUJET,
+  DEFAULT_MAIL_PAIEMENT_CORPS,
 };

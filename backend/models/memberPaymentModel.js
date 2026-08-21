@@ -158,6 +158,24 @@ async function remove(id) {
   return result.affectedRows > 0;
 }
 
+async function listIdsByMemberScope(memberId, { annee, type } = {}) {
+  const where = ['member_id = ?'];
+  const params = [memberId];
+  if (annee) {
+    where.push('annee_cotisation = ?');
+    params.push(Number(annee));
+  }
+  if (type) {
+    where.push('cotisation_type = ?');
+    params.push(String(type));
+  }
+  const [rows] = await pool.execute(
+    `SELECT id, transaction_id FROM member_payments WHERE ${where.join(' AND ')}`,
+    params
+  );
+  return rows;
+}
+
 /** Liste membres + statut pour un type de cotisation + année */
 async function listCotisations({
   annee,
@@ -169,9 +187,11 @@ async function listCotisations({
 } = {}) {
   const settings = await settingsModel.get();
   const year = Number(annee) || settings.cotisation_annee;
-  const typeRow = (await typeModel.findByCode(type)) || (await typeModel.list({ activeOnly: true }))[0];
-  const typeCode = typeRow?.code || 'recrutement';
-  const dueAmount = Number(typeRow?.montant_defaut ?? settings.cotisation_montant);
+  // Filtrer strictement sur le type demandé (pas de repli sur un autre type)
+  const typeCode = String(type || 'recrutement').trim() || 'recrutement';
+  const typeRow = await typeModel.findByCode(typeCode);
+  // Pas de montant fixe côté finance : le trésorier saisit le montant du formulaire.
+  const dueAmount = 0;
   const echeance = settings.date_echeance;
   const typeLabel = typeRow?.label || typeCode;
 
@@ -188,9 +208,27 @@ async function listCotisations({
     `SELECT m.id, m.nom, m.email, m.filiere, m.actif, m.created_at,
             COALESCE(SUM(p.montant), 0) AS paid_total,
             COUNT(p.id) AS payments_count,
-            MAX(p.date_paiement) AS last_payment_date
+            MAX(p.date_paiement) AS last_payment_date,
+            SUBSTRING_INDEX(
+              GROUP_CONCAT(p.montant ORDER BY p.date_paiement DESC, p.id DESC),
+              ',',
+              1
+            ) AS last_montant,
+            SUBSTRING_INDEX(
+              GROUP_CONCAT(
+                COALESCE(NULLIF(p.detail_option, ''), NULLIF(p.detail_nom, ''), p.cotisation_type)
+                ORDER BY p.date_paiement DESC, p.id DESC
+              ),
+              ',',
+              1
+            ) AS last_detail,
+            GROUP_CONCAT(
+              CONCAT(FORMAT(p.montant, 2), IF(p.detail_option IS NULL OR p.detail_option = '', '', CONCAT(' (', p.detail_option, ')')))
+              ORDER BY p.date_paiement ASC, p.id ASC
+              SEPARATOR ' + '
+            ) AS payments_breakdown
      FROM members m
-     LEFT JOIN member_payments p
+     INNER JOIN member_payments p
        ON p.member_id = m.id
       AND p.annee_cotisation = ?
       AND p.cotisation_type = ?
@@ -203,6 +241,7 @@ async function listCotisations({
   let items = rows.map((r) => {
     const paid = Number(r.paid_total);
     const status = computeStatus(paid, dueAmount, echeance);
+    const count = Number(r.payments_count);
     return {
       member_id: r.id,
       nom: r.nom,
@@ -215,8 +254,11 @@ async function listCotisations({
       due_amount: dueAmount,
       remaining: Math.max(0, Math.round((dueAmount - paid) * 100) / 100),
       statut: status,
-      payments_count: Number(r.payments_count),
+      payments_count: count,
       last_payment_date: r.last_payment_date,
+      last_montant: r.last_montant != null ? Number(r.last_montant) : null,
+      last_detail: r.last_detail || null,
+      payments_breakdown: r.payments_breakdown || null,
       date_echeance: echeance,
       devise: settings.devise,
     };
@@ -239,6 +281,8 @@ async function listCotisations({
     total: items.length,
   };
 
+  const totalEncaisse = items.reduce((sum, i) => sum + Number(i.paid_total || 0), 0);
+
   return {
     items: pageItems,
     total,
@@ -249,6 +293,7 @@ async function listCotisations({
     cotisation_type: typeCode,
     cotisation_label: typeLabel,
     due_amount: dueAmount,
+    total_encaisse: Math.round(totalEncaisse * 100) / 100,
     date_echeance: echeance,
     devise: settings.devise,
     counts,
@@ -280,6 +325,7 @@ module.exports = {
   listByMember,
   listPayments,
   remove,
+  listIdsByMemberScope,
   listCotisations,
   cotisationRate,
   computeStatus,

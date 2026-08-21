@@ -71,12 +71,48 @@ const MODULES = [
     accent: 'blue',
     icon: 'calendar',
   },
+  {
+    key: 'deplacements',
+    label: 'Car & compétitions',
+    hint: 'Formulaires & candidats',
+    to: '/admin/deplacements',
+    accent: 'cyan',
+    icon: 'calendar',
+  },
+  {
+    key: 'pvReunions',
+    label: 'PV des réunions',
+    hint: 'Procès-verbaux',
+    to: '/admin/pv-reunions',
+    accent: 'blue',
+    icon: 'book',
+  },
+  {
+    key: 'logistique',
+    label: 'Logistique',
+    hint: 'Inventaire matériel',
+    to: '/admin/logistique',
+    accent: 'cyan',
+    icon: 'book',
+  },
+  {
+    key: 'attendance',
+    label: 'Listes de présence',
+    hint: 'Réunions, AG & formations',
+    to: '/admin/listes-presence',
+    accent: 'cyan',
+    icon: 'users',
+  },
 ];
 
 const QUICK = [
   { label: 'Nouveau créneau', to: '/admin/recruitment', hint: 'Entretiens' },
   { label: 'Gérer le recrutement', to: '/admin/recruitment', hint: 'Candidats' },
   { label: 'Trésorerie', to: '/admin/finance', hint: 'Cotisations' },
+  { label: 'Car & compétitions', to: '/admin/deplacements', hint: 'Formulaires car' },
+  { label: 'Logistique', to: '/admin/logistique', hint: 'Matériel' },
+  { label: 'PV des réunions', to: '/admin/pv-reunions', hint: 'Procès-verbaux' },
+  { label: 'Listes de présence', to: '/admin/listes-presence', hint: 'Émargement' },
   { label: 'Coin RH', to: '/admin/rh', hint: 'Mérites & formulaires' },
   { label: 'Site public', to: '/', hint: 'Voir le club', external: true },
 ];
@@ -221,8 +257,11 @@ export default function Dashboard() {
       soft(api.get('/gallery')),
       soft(api.get('/recruitment/candidates', { params: { limit: 1 } })),
       soft(api.get('/recruitment/stats')),
+      soft(api.get('/deplacements')),
+      soft(api.get('/pv-reunions')),
+      soft(api.get('/logistique')),
     ])
-      .then(([a, b, t, e, g, r, s]) => {
+      .then(([a, b, t, e, g, r, s, d, pv, logi]) => {
         if (cancelled) return;
         const coreFailed = [a, b, t, e, g].every((res) => res.data == null);
         if (coreFailed) {
@@ -238,6 +277,9 @@ export default function Dashboard() {
           events: countList(e.data),
           gallery: countList(g.data),
           candidates: r.data?.total ?? null,
+          deplacements: countList(d.data),
+          pvReunions: countList(pv.data),
+          logistique: countList(logi.data),
         });
         setRecruitment(s.data);
         setError('');

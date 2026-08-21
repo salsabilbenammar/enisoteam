@@ -1,0 +1,184 @@
+.list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem 0.2rem;
+  color: #5f6368;
+  font-size: 0.92rem;
+}
+
+.card {
+  background: #fff;
+  color: #202124;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
+  padding: 1.15rem 1.25rem 0.85rem;
+  cursor: pointer;
+}
+
+.cardActive {
+  border-left: 6px solid #1a73e8;
+  padding-left: calc(1.25rem - 5px);
+}
+
+.cardTop {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .cardTop {
+    grid-template-columns: 1fr 190px;
+    align-items: start;
+  }
+}
+
+.titleInput {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+  border-radius: 4px 4px 0 0;
+  background: #f8f9fa;
+  color: #202124;
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.7rem 0.75rem 0.55rem;
+}
+
+.titleInput:focus {
+  outline: none;
+  background: #f1f3f4;
+  border-bottom: 2px solid #1a73e8;
+  padding-bottom: 0.48rem;
+}
+
+.typeSelect {
+  width: 100%;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  background: #fff;
+  color: #202124;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.55rem 0.65rem;
+}
+
+.previewShort,
+.previewLong {
+  color: #9aa0a6;
+  font-size: 0.92rem;
+  border-bottom: 1px dotted #bdc1c6;
+  padding: 0.35rem 0 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.previewLong {
+  min-height: 3.2rem;
+}
+
+.previewChoice {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #5f6368;
+  font-size: 0.95rem;
+  margin-bottom: 0.85rem;
+}
+
+.options {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.optionRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.optionMark {
+  color: #80868b;
+  font-size: 1.05rem;
+  width: 1.2rem;
+  text-align: center;
+}
+
+.optionRow input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: #202124;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.15rem;
+}
+
+.optionRow input:focus {
+  outline: none;
+  border-bottom: 1px solid #1a73e8;
+}
+
+.addOption {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #1a73e8;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.25rem 0 0.25rem 1.7rem;
+}
+
+.addOption:hover {
+  text-decoration: underline;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e8eaed;
+}
+
+.requiredToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #3c4043;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.requiredToggle input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: #1a73e8;
+}
+
+.iconBtn {
+  appearance: none;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #5f6368;
+  font-size: 1.15rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.iconBtn:hover {
+  background: #f1f3f4;
+}

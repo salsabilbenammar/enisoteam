@@ -6,25 +6,30 @@
   backdrop-filter: blur(18px);
   background: rgba(3, 13, 26, 0.88);
   border-bottom: 1px solid var(--border);
+  overflow-x: clip;
 }
 
 .inner {
+  width: min(1480px, calc(100% - 1.5rem));
+  margin-inline: auto;
   height: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.55rem;
+  flex-shrink: 0;
 }
 
 .logoImg {
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   object-fit: cover;
   box-shadow: 0 0 0 2px rgba(77, 163, 255, 0.25), 0 4px 16px rgba(0, 0, 0, 0.3);
@@ -39,18 +44,19 @@
 .brandText strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text);
+  line-height: 1.15;
 }
 
 .brandText small {
   display: block;
   color: var(--accent-bright);
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-family: var(--font-display);
   font-weight: 600;
@@ -64,6 +70,7 @@
   border: none;
   padding: 0.4rem;
   cursor: pointer;
+  margin-left: auto;
 }
 
 .toggle span {
@@ -76,20 +83,22 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 0.15rem 0.7rem;
+  justify-content: flex-start;
   flex-wrap: nowrap;
-  flex-shrink: 1;
+  gap: 0.1rem 0.4rem;
+  flex: 1 1 auto;
   min-width: 0;
+  margin-left: 0.15rem;
 }
 
 .nav a {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 600;
   font-family: var(--font-display);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  padding: 0.4rem 0;
+  padding: 0.35rem 0.1rem;
   transition: color 0.2s;
   position: relative;
   white-space: nowrap;
@@ -122,9 +131,11 @@
   color: var(--accent-bright) !important;
   border: 1px solid var(--border-strong) !important;
   border-radius: 999px;
-  padding: 0.4rem 0.9rem !important;
+  padding: 0.32rem 0.7rem !important;
   white-space: nowrap;
   flex-shrink: 0;
+  font-size: 0.7rem !important;
+  margin-left: 0.2rem;
 }
 
 .ctaBtn {
@@ -132,11 +143,11 @@
   color: var(--accent-bright);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
-  padding: 0.4rem 0.9rem;
+  padding: 0.32rem 0.7rem;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 0.8rem;
-  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   cursor: pointer;
   white-space: nowrap;
@@ -150,6 +161,7 @@
 .loginMenu {
   position: relative;
   flex-shrink: 0;
+  margin-left: 0.2rem;
 }
 
 .loginDropdown {
@@ -194,11 +206,13 @@
   box-shadow: 0 0 20px rgba(77, 163, 255, 0.2);
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1320px) {
   .brandText {
     display: none;
   }
+}
 
+@media (max-width: 1180px) {
   .toggle {
     display: flex;
   }
@@ -215,6 +229,14 @@
     flex-direction: column;
     align-items: stretch;
     box-shadow: var(--shadow);
+    margin-left: 0;
+    gap: 0.35rem;
+    flex: none;
+  }
+
+  .nav a {
+    font-size: 0.85rem;
+    padding: 0.55rem 0.25rem;
   }
 
   .open {
@@ -223,14 +245,18 @@
 
   .cta {
     text-align: center;
+    margin-left: 0;
+    font-size: 0.85rem !important;
   }
 
   .loginMenu {
     width: 100%;
+    margin-left: 0;
   }
 
   .ctaBtn {
     width: 100%;
+    font-size: 0.85rem;
   }
 
   .loginDropdown {

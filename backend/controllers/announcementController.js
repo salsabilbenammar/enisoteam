@@ -31,7 +31,7 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { titre, contenu, date_publication, lien_formulaire } = req.body;
+    const { titre, contenu, date_publication, lien_formulaire, salle, heure } = req.body;
     if (!titre || !contenu || !date_publication) {
       return res.status(400).json({ message: 'Titre, contenu et date de publication requis.' });
     }
@@ -44,6 +44,8 @@ async function create(req, res, next) {
       contenu,
       date_publication,
       lien_formulaire: link?.value,
+      salle,
+      heure,
       image,
     });
     res.status(201).json(row);
@@ -54,7 +56,7 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    const { titre, contenu, date_publication, lien_formulaire } = req.body;
+    const { titre, contenu, date_publication, lien_formulaire, salle, heure } = req.body;
     if (!titre || !contenu || !date_publication) {
       return res.status(400).json({ message: 'Titre, contenu et date de publication requis.' });
     }
@@ -66,6 +68,8 @@ async function update(req, res, next) {
       contenu,
       date_publication,
       lien_formulaire: link?.value,
+      salle,
+      heure,
     };
     if (req.file) data.image = `/uploads/announcements/${req.file.filename}`;
     const row = await announcementModel.update(req.params.id, data);

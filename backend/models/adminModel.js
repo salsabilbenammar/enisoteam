@@ -7,7 +7,7 @@ async function findByEmail(email) {
 
 async function findById(id) {
   const [rows] = await pool.execute(
-    'SELECT id, nom, email, created_at FROM admins WHERE id = ?',
+    'SELECT id, nom, email, role, created_at FROM admins WHERE id = ?',
     [id]
   );
   return rows[0] || null;

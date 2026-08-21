@@ -4,12 +4,12 @@ const OFFER_TYPES = ['pull', 'deplacement', 'robot'];
 
 const PULL_FORM_DEFS = {
   tshirt: {
-    titre: 'Pull ENISO Team',
-    description: 'Formulaire pull ENISO Team',
+    titre: 'T-shirt ENISO Team',
+    description: 'Commande du T-shirt officiel ENISO Team',
   },
   capuche: {
-    titre: 'Capuche ENISO Team',
-    description: 'Formulaire capuche ENISO Team',
+    titre: 'Hoodie ENISO Team',
+    description: 'Commande du hoodie officiel ENISO Team',
   },
 };
 
@@ -99,8 +99,12 @@ async function updatePullForm(detailOption, data = {}) {
   return updateOffer(row.id, {
     titre: PULL_FORM_DEFS[detailOption]?.titre || row.titre,
     description: PULL_FORM_DEFS[detailOption]?.description || row.description,
-    external_url: data.external_url !== undefined ? data.external_url : row.external_url,
+    external_url: `/boutique/${detailOption}`,
     ouvert: data.ouvert !== undefined ? data.ouvert : row.ouvert,
+    prix_total: data.prix_total !== undefined ? data.prix_total : row.prix_total,
+    photo_url: data.photo_url !== undefined ? data.photo_url : row.photo_url,
+    photo_back_url:
+      data.photo_back_url !== undefined ? data.photo_back_url : row.photo_back_url,
   });
 }
 
@@ -137,7 +141,7 @@ async function updateOffer(id, data) {
   if (!existing) return null;
   await pool.execute(
     `UPDATE finance_cotisation_offers
-     SET titre = ?, description = ?, external_url = ?, ouvert = ?
+     SET titre = ?, description = ?, external_url = ?, ouvert = ?, prix_total = ?, photo_url = ?, photo_back_url = ?
      WHERE id = ?`,
     [
       data.titre !== undefined ? String(data.titre).trim() : existing.titre,
@@ -154,6 +158,11 @@ async function updateOffer(id, data) {
         : data.ouvert === false || data.ouvert === 0 || data.ouvert === '0'
           ? 0
           : 1,
+      data.prix_total !== undefined ? Number(data.prix_total) : existing.prix_total,
+      data.photo_url !== undefined ? data.photo_url || null : existing.photo_url,
+      data.photo_back_url !== undefined
+        ? data.photo_back_url || null
+        : existing.photo_back_url,
       id,
     ]
   );
@@ -171,8 +180,9 @@ async function removeOffer(id) {
 async function createInterest(data) {
   const [result] = await pool.execute(
     `INSERT INTO finance_cotisation_interests
-      (offer_id, member_id, prenom, nom, email, telephone, detail_option)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (offer_id, member_id, prenom, nom, email, telephone, detail_option,
+       filiere, taille, prix_total, acompte, accepte_paiement, statut_commande)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'en_attente')`,
     [
       data.offer_id,
       data.member_id || null,
@@ -181,6 +191,11 @@ async function createInterest(data) {
       String(data.email).trim().toLowerCase(),
       data.telephone || null,
       data.detail_option || null,
+      data.filiere || null,
+      data.taille || null,
+      data.prix_total || 40,
+      data.acompte || null,
+      data.accepte_paiement ? 1 : 0,
     ]
   );
   const [rows] = await pool.execute(
@@ -188,6 +203,49 @@ async function createInterest(data) {
     [result.insertId]
   );
   return rows[0];
+}
+
+async function listMerchOrders(detailOption = '') {
+  const params = [];
+  let filter = '';
+  if (detailOption) {
+    filter = 'AND o.detail_option = ?';
+    params.push(detailOption);
+  }
+  const [rows] = await pool.execute(
+    `SELECT i.*, o.titre, o.detail_option AS produit
+     FROM finance_cotisation_interests i
+     JOIN finance_cotisation_offers o ON o.id = i.offer_id
+     WHERE o.cotisation_type = 'pull' ${filter}
+     ORDER BY i.created_at DESC`,
+    params
+  );
+  return rows;
+}
+
+async function updateMerchOrderStatus(id, status) {
+  const allowed = new Set(['en_attente', 'confirmee', 'livree', 'annulee']);
+  if (!allowed.has(status)) return null;
+  const [result] = await pool.execute(
+    `UPDATE finance_cotisation_interests
+     SET statut_commande = ?
+     WHERE id = ?`,
+    [status, id]
+  );
+  if (!result.affectedRows) return null;
+  const [rows] = await pool.execute(
+    `SELECT * FROM finance_cotisation_interests WHERE id = ?`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+async function removeMerchOrder(id) {
+  const [result] = await pool.execute(
+    `DELETE FROM finance_cotisation_interests WHERE id = ?`,
+    [id]
+  );
+  return result.affectedRows > 0;
 }
 
 async function listInterests(offerId) {
@@ -202,26 +260,21 @@ async function listInterests(offerId) {
   return rows;
 }
 
-/** Membres éligibles au paiement pour une offre (formulaire externe = tous les membres actifs) */
+/** Membres éligibles au paiement = ceux qui ont rempli le formulaire de l’offre */
 async function eligibleMembersForOffer(offerId) {
   const offer = await findOffer(offerId);
   if (!offer) return [];
-  if (offer.external_url) {
-    const [rows] = await pool.execute(
-      `SELECT id, nom, email, filiere
-       FROM members
-       WHERE actif = 1
-       ORDER BY nom ASC`
-    );
-    return rows;
-  }
+  // COLLATE explicite : tables members / interests n’ont pas la même collation email
   const [rows] = await pool.execute(
     `SELECT DISTINCT m.id, m.nom, m.email, m.filiere,
             i.detail_option, i.prenom AS interest_prenom, i.nom AS interest_nom
      FROM finance_cotisation_interests i
      JOIN members m
-       ON m.id = i.member_id
-       OR LOWER(TRIM(m.email)) = LOWER(TRIM(i.email))
+       ON (i.member_id IS NOT NULL AND m.id = i.member_id)
+       OR (
+         LOWER(TRIM(m.email)) COLLATE utf8mb4_unicode_ci
+         = LOWER(TRIM(i.email)) COLLATE utf8mb4_unicode_ci
+       )
      WHERE i.offer_id = ? AND m.actif = 1
      ORDER BY m.nom ASC`,
     [offerId]
@@ -233,7 +286,9 @@ async function eligibleMembersForTraining(trainingId) {
   const [rows] = await pool.execute(
     `SELECT DISTINCT m.id, m.nom, m.email, m.filiere
      FROM training_registrations r
-     JOIN members m ON LOWER(TRIM(m.email)) = LOWER(TRIM(r.email))
+     JOIN members m
+       ON LOWER(TRIM(m.email)) COLLATE utf8mb4_unicode_ci
+        = LOWER(TRIM(r.email)) COLLATE utf8mb4_unicode_ci
      WHERE r.training_id = ? AND m.actif = 1
      ORDER BY m.nom ASC`,
     [trainingId]
@@ -245,7 +300,9 @@ async function eligibleMembersForEvent(eventId) {
   const [rows] = await pool.execute(
     `SELECT DISTINCT m.id, m.nom, m.email, m.filiere
      FROM event_registrations r
-     JOIN members m ON LOWER(TRIM(m.email)) = LOWER(TRIM(r.email))
+     JOIN members m
+       ON LOWER(TRIM(m.email)) COLLATE utf8mb4_unicode_ci
+        = LOWER(TRIM(r.email)) COLLATE utf8mb4_unicode_ci
      WHERE r.event_id = ? AND m.actif = 1
      ORDER BY m.nom ASC`,
     [eventId]
@@ -259,7 +316,9 @@ async function eligibleMembersForRecrutement() {
     `SELECT c.id AS candidate_id, c.prenom, c.nom, c.email, c.filiere, c.statut,
             m.id AS member_id
      FROM recruitment_candidates c
-     LEFT JOIN members m ON LOWER(TRIM(m.email)) = LOWER(TRIM(c.email))
+     LEFT JOIN members m
+       ON LOWER(TRIM(m.email)) COLLATE utf8mb4_unicode_ci
+        = LOWER(TRIM(c.email)) COLLATE utf8mb4_unicode_ci
      WHERE c.statut IN ('paiement_en_attente', 'accepte')
        AND (c.stream IS NULL OR c.stream = 'general' OR c.stream = '')
      ORDER BY c.nom ASC, c.prenom ASC`
@@ -352,6 +411,9 @@ module.exports = {
   removeOffer,
   createInterest,
   listInterests,
+  listMerchOrders,
+  updateMerchOrderStatus,
+  removeMerchOrder,
   eligibleMembersForOffer,
   eligibleMembersForTraining,
   eligibleMembersForEvent,

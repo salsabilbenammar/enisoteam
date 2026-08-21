@@ -72,6 +72,10 @@ app.use('/api/rh', require('./routes/rhRoutes'));
 app.use('/api/recruitment', require('./routes/recruitmentRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/finance', require('./routes/financeRoutes'));
+app.use('/api/deplacements', require('./routes/deplacementRoutes'));
+app.use('/api/pv-reunions', require('./routes/pvReunionRoutes'));
+app.use('/api/attendance', require('./routes/attendanceRoutes'));
+app.use('/api/logistique', require('./routes/logistiqueRoutes'));
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Route introuvable.' });

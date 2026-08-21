@@ -45,21 +45,70 @@ function normalizeCustomFields(raw) {
     .filter(Boolean);
 }
 
+function splitEventFields(raw) {
+  const parsed = parseJsonField(raw, []);
+  if (Array.isArray(parsed)) {
+    return { chef: normalizeCustomFields(parsed), membres: [], communs: [] };
+  }
+  if (parsed && typeof parsed === 'object') {
+    return {
+      chef: normalizeCustomFields(parsed.chef || []),
+      membres: normalizeCustomFields(parsed.membres || []),
+      communs: normalizeCustomFields(parsed.communs || []),
+    };
+  }
+  return { chef: [], membres: [], communs: [] };
+}
+
+function serializeEventFields(data) {
+  const split = splitEventFields(data.champs_personnalises);
+  const chef = normalizeCustomFields(
+    data.champs_chef !== undefined ? data.champs_chef : split.chef
+  );
+  const membres = normalizeCustomFields(
+    data.champs_membres !== undefined ? data.champs_membres : split.membres
+  );
+  const communs = normalizeCustomFields(
+    data.champs_communs !== undefined ? data.champs_communs : split.communs
+  );
+  return JSON.stringify({ chef, membres, communs });
+}
+
+function normalizeFormAudience(raw) {
+  const t = String(raw || '').trim();
+  if (t === 'groupe') return 'groupe';
+  if (t === 'les_deux' || t === 'avec_accompagnants') return 'les_deux';
+  return 'personne';
+}
+
+function audienceAllowsGroup(audience) {
+  return audience === 'groupe' || audience === 'les_deux';
+}
+
 function normalizeEvent(row) {
   if (!row) return null;
-  const type =
-    row.formulaire_type === 'avec_accompagnants' ? 'avec_accompagnants' : 'individuel';
+  const type = normalizeFormAudience(row.formulaire_type);
   const min = Math.max(0, Number(row.accompagnants_min) || 0);
   let max = Math.max(0, Number(row.accompagnants_max) || 0);
-  if (type === 'avec_accompagnants' && max < min) max = min;
+  if (audienceAllowsGroup(type) && max < min) max = min;
+  const split = splitEventFields(row.champs_personnalises);
+  const open =
+    Number(row.inscription_ouverte) === 1 || row.inscription_ouverte === true;
+  const payant = Number(row.payant) === 1 || row.payant === true;
   return {
     ...row,
-    inscription_ouverte:
-      Number(row.inscription_ouverte) === 1 || row.inscription_ouverte === true,
+    inscription_ouverte: open,
+    payant,
+    prix: row.prix || null,
     formulaire_type: type,
-    accompagnants_min: type === 'avec_accompagnants' ? min : 0,
-    accompagnants_max: type === 'avec_accompagnants' ? max : 0,
-    champs_personnalises: normalizeCustomFields(row.champs_personnalises),
+    accompagnants_min: audienceAllowsGroup(type) ? min : 0,
+    accompagnants_max: audienceAllowsGroup(type) ? max : 0,
+    champs_chef: split.chef,
+    champs_membres: split.membres,
+    champs_communs: split.communs,
+    champs_personnalises: [...split.chef, ...split.communs],
+    liste_finale: parseJsonField(row.liste_finale, null),
+    liste_finale_at: row.liste_finale_at || null,
   };
 }
 
@@ -101,6 +150,7 @@ function normalizeRegistration(row) {
 }
 
 async function createEventRegistration(eventId, data) {
+  const accepte = data.accepte_paiement ? 1 : 0;
   const accompagnantsJson =
     data.accompagnants && data.accompagnants.length
       ? JSON.stringify(data.accompagnants)
@@ -114,8 +164,8 @@ async function createEventRegistration(eventId, data) {
     const [result] = await pool.execute(
       `INSERT INTO event_registrations
         (event_id, prenom, nom, email, telephone, facebook_link, filiere, annee, motivation,
-         accompagnants, reponses_personnalisees)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         accepte_paiement, accompagnants, reponses_personnalisees)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         data.prenom,
@@ -126,6 +176,7 @@ async function createEventRegistration(eventId, data) {
         data.filiere || null,
         data.annee || null,
         data.motivation || null,
+        accepte,
         accompagnantsJson,
         reponsesJson,
       ]
@@ -133,23 +184,47 @@ async function createEventRegistration(eventId, data) {
     return result.insertId;
   } catch (err) {
     if (err.code !== 'ER_BAD_FIELD_ERROR') throw err;
-    const [result] = await pool.execute(
-      `INSERT INTO event_registrations
-        (event_id, prenom, nom, email, telephone, facebook_link, filiere, annee, motivation)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        eventId,
-        data.prenom,
-        data.nom,
-        data.email,
-        data.telephone,
-        data.facebook_link || null,
-        data.filiere || null,
-        data.annee || null,
-        data.motivation || null,
-      ]
-    );
-    return result.insertId;
+    try {
+      const [result] = await pool.execute(
+        `INSERT INTO event_registrations
+          (event_id, prenom, nom, email, telephone, facebook_link, filiere, annee, motivation,
+           accompagnants, reponses_personnalisees)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          eventId,
+          data.prenom,
+          data.nom,
+          data.email,
+          data.telephone,
+          data.facebook_link || null,
+          data.filiere || null,
+          data.annee || null,
+          data.motivation || null,
+          accompagnantsJson,
+          reponsesJson,
+        ]
+      );
+      return result.insertId;
+    } catch (err2) {
+      if (err2.code !== 'ER_BAD_FIELD_ERROR') throw err2;
+      const [result] = await pool.execute(
+        `INSERT INTO event_registrations
+          (event_id, prenom, nom, email, telephone, facebook_link, filiere, annee, motivation)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          eventId,
+          data.prenom,
+          data.nom,
+          data.email,
+          data.telephone,
+          data.facebook_link || null,
+          data.filiere || null,
+          data.annee || null,
+          data.motivation || null,
+        ]
+      );
+      return result.insertId;
+    }
   }
 }
 
@@ -293,6 +368,35 @@ async function listTrainingRegistrations(trainingId) {
   }
 }
 
+async function setEventRegistrationPayment(registrationId, eventId, validated) {
+  const value = validated ? 1 : 0;
+  try {
+    const [result] = await pool.execute(
+      `UPDATE event_registrations
+       SET paiement_valide = ?,
+           paiement_valide_at = CASE
+             WHEN ? = 1 THEN COALESCE(paiement_valide_at, NOW())
+             ELSE NULL
+           END
+       WHERE id = ? AND event_id = ?`,
+      [value, value, registrationId, eventId]
+    );
+    if (!result.affectedRows) return null;
+  } catch (err) {
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      const e = new Error(
+        'Colonne paiement_valide absente. Exécutez database/migrate_event_payant.js'
+      );
+      e.status = 503;
+      throw e;
+    }
+    throw err;
+  }
+
+  const list = await listEventRegistrations(eventId);
+  return list.find((r) => Number(r.id) === Number(registrationId)) || null;
+}
+
 async function setTrainingRegistrationPayment(registrationId, trainingId, validated) {
   const value = validated ? 1 : 0;
   try {
@@ -337,11 +441,16 @@ async function setTrainingRegistrationPayment(registrationId, trainingId, valida
 }
 
 module.exports = {
+  normalizeFormAudience,
+  audienceAllowsGroup,
+  splitEventFields,
+  serializeEventFields,
   normalizeEvent,
   normalizeTraining,
   normalizeCustomFields,
   createEventRegistration,
   listEventRegistrations,
+  setEventRegistrationPayment,
   createTrainingRegistration,
   listTrainingRegistrations,
   setTrainingRegistrationPayment,

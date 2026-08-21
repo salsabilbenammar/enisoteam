@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import api from '../../services/api';
+import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import MailTemplateEditor from '../../components/admin/MailTemplateEditor';
+import { localToday } from '../../utils/dateLimits';
 import styles from './ManageFinance.module.css';
 
 const STATUS_LABEL = {
@@ -17,10 +19,39 @@ const METHOD_LABEL = {
   carte: 'Carte',
 };
 
+const DEFAULT_MAIL_SUJET = 'Confirmation de paiement — [Type] [Annee]';
+const DEFAULT_MAIL_CORPS = `Bonjour [Nom],
+
+Nous confirmons la réception de votre paiement enregistré par le trésorier ENISO Team.
+
+Type de cotisation : [Type]
+Année : [Annee]
+Montant : [Montant]
+Date du paiement : [DatePaiement]
+Méthode : [Methode]
+Détail : [Detail]
+Note : [Note]
+
+Conservez cet email comme justificatif. Pour toute question, contactez le trésorier du club.
+
+— ENISO Team`;
+
+const MAIL_PLACEHOLDERS = [
+  { key: 'Nom', hint: 'Nom du membre' },
+  { key: 'Type', hint: 'Type de cotisation' },
+  { key: 'Annee', hint: 'Année' },
+  { key: 'Montant', hint: 'Montant payé' },
+  { key: 'Devise', hint: 'Devise' },
+  { key: 'DatePaiement', hint: 'Date du paiement' },
+  { key: 'Methode', hint: 'Méthode' },
+  { key: 'Detail', hint: 'Référence / détail' },
+  { key: 'Note', hint: 'Note trésorerie' },
+];
+
 const emptyPayment = {
   member_id: '',
   montant: '',
-  date_paiement: new Date().toISOString().slice(0, 10),
+  date_paiement: localToday(),
   methode: 'especes',
   annee_cotisation: String(new Date().getFullYear()),
   cotisation_type: 'recrutement',
@@ -31,7 +62,14 @@ const emptyPayment = {
 
 const PULL_OPTIONS = {
   tshirt: 'T-shirt',
-  capuche: 'Capuche',
+  capuche: 'Hoodie',
+};
+
+const MERCH_STATUS = {
+  en_attente: 'En attente',
+  confirmee: 'Confirmée',
+  livree: 'Livrée',
+  annulee: 'Annulée',
 };
 
 const NEEDS_REF = ['formation', 'evenement', 'pull', 'deplacement', 'robot'];
@@ -65,15 +103,11 @@ export default function ManageFinance() {
   const [paymentForm, setPaymentForm] = useState(emptyPayment);
   const [formOptions, setFormOptions] = useState([]);
   const [eligibleMembers, setEligibleMembers] = useState([]);
-  const [offerDraft, setOfferDraft] = useState({
-    titre: '',
-    description: '',
-    external_url: '',
-    ouvert: true,
-  });
+  const [memberQuery, setMemberQuery] = useState('');
   const [offers, setOffers] = useState([]);
   const [pullForms, setPullForms] = useState([]);
-  const [pullUrls, setPullUrls] = useState({ tshirt: '', capuche: '' });
+  const [merchDrafts, setMerchDrafts] = useState({});
+  const [merchOrders, setMerchOrders] = useState([]);
   const [history, setHistory] = useState(null);
   const [saving, setSaving] = useState(false);
   const [exportingPaid, setExportingPaid] = useState(false);
@@ -95,7 +129,7 @@ export default function ManageFinance() {
       cotisation_type: first?.code || 'recrutement',
       detail_ref_id: '',
       detail_option: '',
-      montant: String(first?.montant_defaut ?? data.cotisation_montant ?? ''),
+      montant: '',
     }));
     setCotAnnee(String(data.cotisation_annee));
     if (first?.code) setCotType(first.code);
@@ -129,12 +163,21 @@ export default function ManageFinance() {
     const { data } = await api.get('/finance/pull-forms');
     const rows = data || [];
     setPullForms(rows);
-    const urls = {};
-    for (const f of rows) {
-      if (f.detail_option) urls[f.detail_option] = f.external_url || '';
-    }
-    setPullUrls((prev) => ({ ...prev, ...urls }));
+    setMerchDrafts(
+      Object.fromEntries(
+        rows.map((row) => [
+          row.detail_option,
+          { prix_total: String(row.prix_total ?? 40), photo: null, photo_back: null },
+        ])
+      )
+    );
     return rows;
+  }, []);
+
+  const loadMerchOrders = useCallback(async () => {
+    const { data } = await api.get('/finance/merchandise-orders');
+    setMerchOrders(data || []);
+    return data || [];
   }, []);
 
   const loadOffers = useCallback(async (type) => {
@@ -180,37 +223,105 @@ export default function ManageFinance() {
   }, []);
 
   useEffect(() => {
-    Promise.all([loadSettings(), loadMembers(), loadPullForms()])
-      .then(async () => {
-        try {
-          await loadEligible('recrutement');
-        } catch {
-          /* ignore */
-        }
-      })
+    Promise.all([loadSettings(), loadMembers(), loadPullForms(), loadMerchOrders()])
       .catch((err) => setError(err.response?.data?.message || 'Chargement impossible.'))
       .finally(() => setLoading(false));
-  }, [loadSettings, loadMembers, loadEligible, loadPullForms]);
+  }, [loadSettings, loadMembers, loadPullForms, loadMerchOrders]);
 
   useEffect(() => {
     if (loading) return;
     if (tab === 'cotisations') {
       loadCotisations().catch((err) => setError(err.response?.data?.message || 'Erreur cotisations.'));
     }
-  }, [tab, loading, loadCotisations]);
+    if (tab === 'boutique') {
+      Promise.all([loadPullForms(), loadMerchOrders()]).catch((err) =>
+        setError(err.response?.data?.message || 'Erreur boutique.')
+      );
+    }
+  }, [tab, loading, loadCotisations, loadPullForms, loadMerchOrders]);
 
   const devise = settings?.devise || 'DT';
-  const selectedOffer = useMemo(
-    () => formOptions.find((o) => String(o.id) === String(paymentForm.detail_ref_id)),
-    [formOptions, paymentForm.detail_ref_id]
-  );
+
+  // Pour recrutement / formation / pull / etc. : uniquement les inscrits au formulaire
+  // (jamais la liste complète des membres).
+  const membersForPayment = useMemo(() => {
+    const q = memberQuery.trim().toLowerCase();
+    const type = paymentForm.cotisation_type;
+    const restrictToForm =
+      type === 'recrutement' || NEEDS_REF.includes(type);
+    const list = restrictToForm ? eligibleMembers : members || [];
+    if (!q) return list;
+    return list.filter(
+      (m) =>
+        String(m.nom || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(m.email || '')
+          .toLowerCase()
+          .includes(q)
+    );
+  }, [members, eligibleMembers, memberQuery, paymentForm.cotisation_type]);
+
+  const usingEligible =
+    paymentForm.cotisation_type === 'recrutement' ||
+    NEEDS_REF.includes(paymentForm.cotisation_type);
+
+  // Aligner le formulaire paiement sur les filtres type / année de la liste
+  useEffect(() => {
+    let cancelled = false;
+    setPaymentForm((f) => ({
+      ...f,
+      cotisation_type: cotType || f.cotisation_type,
+      annee_cotisation: cotAnnee || f.annee_cotisation,
+      detail_option: (cotType || f.cotisation_type) === 'pull' ? f.detail_option || 'tshirt' : '',
+      member_id: '',
+      detail_ref_id: '',
+    }));
+    setMemberQuery('');
+    setEligibleMembers([]);
+    (async () => {
+      if (!cotType || cotType === 'recrutement') {
+        setFormOptions([]);
+        if (cotType === 'recrutement') {
+          try {
+            await loadEligible('recrutement');
+          } catch {
+            if (!cancelled) setEligibleMembers([]);
+          }
+        }
+        return;
+      }
+      try {
+        const opts = await loadFormOptions(cotType);
+        if (cancelled) return;
+        if (cotType === 'pull') {
+          const variant = 'tshirt';
+          const offer = opts.find((o) => o.detail_option === variant);
+          const price = Number(offer?.prix_total ?? 40);
+          setPaymentForm((f) => ({
+            ...f,
+            detail_option: variant,
+            detail_ref_id: offer?.id ? String(offer.id) : '',
+            detail_nom: offer?.titre || '',
+            montant: Number.isFinite(price) && price > 0 ? String(price) : '',
+          }));
+          if (offer?.id) await loadEligible('pull', offer.id);
+        }
+      } catch {
+        if (!cancelled) setEligibleMembers([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only on type/year filters
+  }, [cotType, cotAnnee]);
 
   const setPullFormOpen = async (variant, open) => {
     setSaving(true);
     setError('');
     try {
       const { data } = await api.put(`/finance/pull-forms/${variant}`, {
-        external_url: pullUrls[variant] || '',
         ouvert: open,
       });
       flash(data.message || (open ? 'Formulaire ouvert.' : 'Formulaire fermé.'));
@@ -225,17 +336,35 @@ export default function ManageFinance() {
     }
   };
 
-  const savePullFormUrl = async (variant) => {
+  const updateMerchStatus = async (id, statut) => {
     setSaving(true);
     setError('');
     try {
-      const { data } = await api.put(`/finance/pull-forms/${variant}`, {
-        external_url: pullUrls[variant] || '',
-      });
-      flash(data.message || 'URL enregistrée.');
+      await api.patch(`/finance/merchandise-orders/${id}/status`, { statut });
+      await loadMerchOrders();
+      flash('Statut de la commande mis à jour.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Mise à jour impossible.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveMerchCatalog = async (variant) => {
+    const draft = merchDrafts[variant];
+    if (!draft) return;
+    const formData = new FormData();
+    formData.append('prix_total', draft.prix_total);
+    if (draft.photo) formData.append('photo', draft.photo);
+    if (draft.photo_back) formData.append('photo_back', draft.photo_back);
+    setSaving(true);
+    setError('');
+    try {
+      const { data } = await api.put(`/finance/pull-forms/${variant}`, formData);
+      flash(data.message || 'Produit mis à jour.');
       await loadPullForms();
     } catch (err) {
-      setError(err.response?.data?.message || 'Enregistrement impossible.');
+      setError(err.response?.data?.message || 'Mise à jour impossible.');
     } finally {
       setSaving(false);
     }
@@ -243,9 +372,10 @@ export default function ManageFinance() {
 
   const renderPullFormsPanel = () => (
     <div className={`card ${styles.pullFormsPanel}`}>
-      <h3>Formulaires Pull ENISO Team</h3>
+      <h3>Boutique — Hoodie &amp; T-shirt</h3>
       <p className={styles.meta} style={{ marginTop: 0 }}>
-        Ouvrez ou fermez les liens affichés dans le menu membre (site officiel).
+        Prix, photos et ouverture des commandes membres. Les paiements encaissés se saisissent dans
+        l&apos;onglet Cotisations (type pull).
       </p>
       <div className={styles.pullFormsGrid}>
         {pullForms.map((f) => (
@@ -256,22 +386,97 @@ export default function ManageFinance() {
                 {f.ouvert ? 'Ouvert' : 'Fermé'}
               </span>
             </header>
-            <div className="form-group">
-              <label>URL du formulaire</label>
-              <input
-                type="url"
-                value={pullUrls[f.detail_option] || ''}
-                placeholder="https://…"
-                onChange={(e) =>
-                  setPullUrls((prev) => ({ ...prev, [f.detail_option]: e.target.value }))
+            <p className={styles.meta}>{f.description}</p>
+            <div className={styles.merchPreviewRow}>
+              <img
+                src={
+                  assetUrl(f.photo_url) ||
+                  (f.detail_option === 'capuche'
+                    ? '/merch/hoodie-front.png'
+                    : '/merch/tshirt-front.png')
                 }
+                alt={`Avant ${f.titre}`}
+                className={styles.merchPreview}
+              />
+              <img
+                src={
+                  assetUrl(f.photo_back_url) ||
+                  (f.detail_option === 'capuche'
+                    ? '/merch/hoodie-back.png'
+                    : '/merch/tshirt-back.png')
+                }
+                alt={`Arrière ${f.titre}`}
+                className={styles.merchPreview}
               />
             </div>
+            <div className={styles.merchCatalogFields}>
+              <label>
+                Prix (DT)
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={merchDrafts[f.detail_option]?.prix_total ?? ''}
+                  onChange={(e) =>
+                    setMerchDrafts((current) => ({
+                      ...current,
+                      [f.detail_option]: {
+                        ...(current[f.detail_option] || {}),
+                        prix_total: e.target.value,
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Photo avant
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) =>
+                    setMerchDrafts((current) => ({
+                      ...current,
+                      [f.detail_option]: {
+                        ...(current[f.detail_option] || {}),
+                        photo: e.target.files?.[0] || null,
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                Photo arrière
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) =>
+                    setMerchDrafts((current) => ({
+                      ...current,
+                      [f.detail_option]: {
+                        ...(current[f.detail_option] || {}),
+                        photo_back: e.target.files?.[0] || null,
+                      },
+                    }))
+                  }
+                />
+              </label>
+            </div>
+            <p className={styles.meta}>
+              {merchOrders.filter((o) => o.produit === f.detail_option).length} commande(s)
+            </p>
             <div className={styles.pullFormActions}>
               <button
                 type="button"
+                className="btn btn-secondary btn-sm"
+                disabled={saving}
+                onClick={() => saveMerchCatalog(f.detail_option)}
+              >
+                Enregistrer
+              </button>
+              <button
+                type="button"
                 className="btn btn-primary btn-sm"
-                disabled={saving || f.ouvert || !(pullUrls[f.detail_option] || '').trim()}
+                disabled={saving || f.ouvert}
                 onClick={() => setPullFormOpen(f.detail_option, true)}
               >
                 Ouvrir
@@ -284,31 +489,92 @@ export default function ManageFinance() {
               >
                 Fermer
               </button>
-              <button
-                type="button"
+              <a
                 className="btn btn-secondary btn-sm"
-                disabled={saving}
-                onClick={() => savePullFormUrl(f.detail_option)}
+                href={`/boutique/${f.detail_option}`}
+                target="_blank"
+                rel="noreferrer"
               >
-                Enregistrer l’URL
-              </button>
+                Aperçu
+              </a>
             </div>
           </article>
         ))}
       </div>
+      {merchOrders.length > 0 && (
+        <div className={styles.merchOrders}>
+          <h4>Commandes reçues ({merchOrders.length})</h4>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Produit</th>
+                  <th>Membre</th>
+                  <th>Contact</th>
+                  <th>Filière</th>
+                  <th>Taille</th>
+                  <th>Prix</th>
+                    <th>Accepte de payer</th>
+                    <th>Statut commande</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {merchOrders.map((order) => (
+                  <tr key={order.id}>
+                    <td>{PULL_OPTIONS[order.produit] || order.titre}</td>
+                    <td>{`${order.prenom} ${order.nom}`.trim()}</td>
+                    <td>
+                      {order.telephone || '—'}
+                      <br />
+                      <small>{order.email}</small>
+                    </td>
+                    <td>{order.filiere || '—'}</td>
+                    <td><strong>{order.taille || '—'}</strong></td>
+                    <td>{money(order.prix_total, devise)}</td>
+                    <td>{Number(order.accepte_paiement) === 1 ? 'Oui' : 'Non'}</td>
+                    <td>
+                      <select
+                        value={order.statut_commande || 'en_attente'}
+                        disabled={saving}
+                        onChange={(e) => updateMerchStatus(order.id, e.target.value)}
+                      >
+                        {Object.entries(MERCH_STATUS).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        disabled={saving}
+                        onClick={() => deleteMerchOrder(order.id)}
+                      >
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 
-  const saveSettings = async (e) => {
+  const saveMailTemplate = async (e) => {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      const { data } = await api.put('/finance/settings', settings);
+      const { data } = await api.put('/finance/settings', {
+        mail_paiement_sujet: settings.mail_paiement_sujet,
+        mail_paiement_corps: settings.mail_paiement_corps,
+      });
       setSettings(data);
-      setCotTypes((data.types || []).filter((t) => t.actif !== false));
-      flash('Paramètres enregistrés.');
-      await loadCotisations();
+      flash('Modèle de mail enregistré.');
     } catch (err) {
       setError(err.response?.data?.message || 'Enregistrement impossible.');
     } finally {
@@ -318,32 +584,78 @@ export default function ManageFinance() {
 
   const selectPaymentType = async (code) => {
     const t = cotTypes.find((x) => x.code === code);
+    setCotPage(1);
+    setCotType(code);
     setPaymentForm((f) => ({
       ...f,
       cotisation_type: code,
       detail_ref_id: '',
       detail_option: code === 'pull' ? 'tshirt' : '',
       member_id: '',
-      montant:
-        t && Number(t.montant_defaut) > 0
-          ? String(t.montant_defaut)
-          : f.montant,
+      montant: '',
     }));
+    setMemberQuery('');
     setEligibleMembers([]);
     try {
-      await loadFormOptions(code);
-      if (code === 'recrutement') await loadEligible('recrutement');
+      const opts = await loadFormOptions(code);
+      if (code === 'pull') {
+        applyPullPrice(opts, 'tshirt');
+      }
+      if (code === 'recrutement') {
+        await loadEligible('recrutement');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Options indisponibles.');
     }
   };
 
+  const applyPullPrice = async (opts, variant) => {
+    const list = opts || formOptions;
+    const offer =
+      list.find((o) => o.detail_option === variant) ||
+      list.find((o) => String(o.id) === String(paymentForm.detail_ref_id));
+    const price = Number(offer?.prix_total ?? 40);
+    setPaymentForm((f) => ({
+      ...f,
+      detail_option: variant,
+      detail_ref_id: offer?.id ? String(offer.id) : f.detail_ref_id,
+      detail_nom: offer?.titre || f.detail_nom,
+      member_id: '',
+      montant: Number.isFinite(price) && price > 0 ? String(price) : '',
+    }));
+    setMemberQuery('');
+    if (offer?.id) {
+      try {
+        await loadEligible('pull', offer.id);
+      } catch {
+        setEligibleMembers([]);
+      }
+    } else {
+      setEligibleMembers([]);
+    }
+  };
+
   const selectPaymentRef = async (refId) => {
-    setPaymentForm((f) => ({ ...f, detail_ref_id: refId, member_id: '' }));
+    const offer = formOptions.find((o) => String(o.id) === String(refId));
+    setPaymentForm((f) => {
+      const next = { ...f, detail_ref_id: refId, member_id: '' };
+      if (f.cotisation_type === 'pull' && offer) {
+        next.detail_option = offer.detail_option || f.detail_option;
+        next.detail_nom = offer.titre || f.detail_nom;
+        const price = Number(offer.prix_total);
+        next.montant = Number.isFinite(price) && price > 0 ? String(price) : '';
+      }
+      return next;
+    });
+    setMemberQuery('');
     try {
-      await loadEligible(paymentForm.cotisation_type, refId);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Membres éligibles indisponibles.');
+      if (refId) {
+        await loadEligible(paymentForm.cotisation_type, refId);
+      } else {
+        setEligibleMembers([]);
+      }
+    } catch {
+      setEligibleMembers([]);
     }
   };
 
@@ -364,19 +676,19 @@ export default function ManageFinance() {
         detail_option: paymentForm.detail_option || undefined,
       });
       flash(data.message || 'Paiement enregistré.');
-      const t = cotTypes.find((x) => x.code === paymentForm.cotisation_type);
+      const typeCode = paymentForm.cotisation_type || cotType;
       setPaymentForm({
         ...emptyPayment,
-        annee_cotisation: String(settings?.cotisation_annee || new Date().getFullYear()),
-        cotisation_type: paymentForm.cotisation_type,
-        detail_option: paymentForm.cotisation_type === 'pull' ? 'tshirt' : '',
-        montant: String(t?.montant_defaut || ''),
+        annee_cotisation: String(cotAnnee || settings?.cotisation_annee || new Date().getFullYear()),
+        cotisation_type: typeCode,
+        detail_option: typeCode === 'pull' ? 'tshirt' : '',
+        montant: '',
       });
+      setMemberQuery('');
       setEligibleMembers([]);
-      if (paymentForm.cotisation_type === 'recrutement') {
-        await loadEligible('recrutement');
-      } else if (NEEDS_REF.includes(paymentForm.cotisation_type)) {
-        await loadFormOptions(paymentForm.cotisation_type);
+      if (NEEDS_REF.includes(typeCode)) {
+        const opts = await loadFormOptions(typeCode);
+        if (typeCode === 'pull') applyPullPrice(opts, 'tshirt');
       }
       await loadCotisations();
     } catch (err) {
@@ -401,15 +713,69 @@ export default function ManageFinance() {
     const ok = await confirm({
       title: 'Supprimer ce paiement ?',
       message: 'Cette action est définitive.',
+      tone: 'danger',
     });
     if (!ok) return;
     try {
       await api.delete(`/finance/payments/${id}`);
+      setHistory((prev) => {
+        if (!prev) return prev;
+        const payments = (prev.payments || []).filter((p) => Number(p.id) !== Number(id));
+        if (!payments.length) return null;
+        return { ...prev, payments };
+      });
       flash('Paiement supprimé.');
-      if (history) await openHistory(history.member.id);
       await loadCotisations();
     } catch (err) {
-      setError(err.response?.data?.message || 'Suppression impossible.');
+      const message = err.response?.data?.message || 'Suppression impossible.';
+      setError(message);
+      window.alert(message);
+    }
+  };
+
+  const removeMemberFromCotisations = async (memberId, nom) => {
+    const ok = await confirm({
+      title: 'Retirer ce membre ?',
+      message: `Supprimer tous les paiements de ${nom || 'ce membre'} pour ce type et cette année. Il disparaîtra de la liste.`,
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/finance/payments/member/${memberId}`, {
+        params: { annee: cotAnnee, type: cotType },
+      });
+      setCotisations((prev) => prev.filter((c) => Number(c.member_id) !== Number(memberId)));
+      setHistory((prev) =>
+        prev && Number(prev.member?.id) === Number(memberId) ? null : prev
+      );
+      flash('Membre retiré de la liste.');
+      await loadCotisations();
+    } catch (err) {
+      const message = err.response?.data?.message || 'Suppression impossible.';
+      setError(message);
+      window.alert(message);
+    }
+  };
+
+  const deleteMerchOrder = async (id) => {
+    const ok = await confirm({
+      title: 'Supprimer cette commande ?',
+      message: 'Cette action est définitive.',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setSaving(true);
+    setError('');
+    try {
+      await api.delete(`/finance/merchandise-orders/${id}`);
+      setMerchOrders((prev) => prev.filter((o) => Number(o.id) !== Number(id)));
+      flash('Commande supprimée.');
+    } catch (err) {
+      const message = err.response?.data?.message || 'Suppression impossible.';
+      setError(message);
+      window.alert(message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -438,7 +804,6 @@ export default function ManageFinance() {
         cotType;
 
       const total = items.reduce((sum, c) => sum + Number(c.paid_total || 0), 0);
-      const generatedAt = new Date().toLocaleString('fr-FR');
 
       const [{ jsPDF }, { default: autoTable }] = await Promise.all([
         import('jspdf'),
@@ -454,11 +819,10 @@ export default function ManageFinance() {
       doc.text(`Année : ${cotAnnee}`, 14, 34);
       doc.text(`Membres payés : ${items.length}`, 14, 40);
       doc.text(`Total encaissé : ${money(total, devise)}`, 14, 46);
-      doc.text(`Généré le ${generatedAt}`, 14, 52);
       doc.setTextColor(0, 0, 0);
 
       autoTable(doc, {
-        startY: 58,
+        startY: 52,
         head: [['Nom', 'Type de cotisation', 'Année', `Montant (${devise})`]],
         body: items.map((c) => [
           c.nom,
@@ -494,7 +858,7 @@ export default function ManageFinance() {
     <div className={styles.page}>
       <header className="page-header">
         <h1>Finance / Trésorerie</h1>
-        <p>Suivi des cotisations membres et paramètres.</p>
+        <p>Cotisations et paiements · boutique pull · mail de confirmation.</p>
       </header>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -503,7 +867,8 @@ export default function ManageFinance() {
       <div className={styles.tabs}>
         {[
           ['cotisations', 'Cotisations'],
-          ['settings', 'Paramètres'],
+          ['boutique', 'Boutique'],
+          ['mails', 'Mails'],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -516,9 +881,10 @@ export default function ManageFinance() {
         ))}
       </div>
 
+      {tab === 'boutique' && <section className={styles.section}>{renderPullFormsPanel()}</section>}
+
       {tab === 'cotisations' && (
         <section className={styles.section}>
-          {renderPullFormsPanel()}
           <div className={styles.statRow}>
             <div className={styles.statCard}>
               <span>Payés</span>
@@ -539,15 +905,18 @@ export default function ManageFinance() {
               </strong>
             </div>
             <div className={styles.statCard}>
-              <span>Montant dû</span>
-              <strong>{money(cotMeta.due_amount, devise)}</strong>
+              <span>Total encaissé</span>
+              <strong>{money(cotMeta.total_encaisse ?? 0, devise)}</strong>
             </div>
           </div>
 
           <div className={styles.split}>
             <div className={styles.panelStack}>
             <form className={`card form ${styles.panel}`} onSubmit={submitPayment}>
-              <h3>Enregistrer un paiement</h3>
+              <h3>Enregistrer un paiement reçu</h3>
+              <p className={styles.meta} style={{ marginTop: 0 }}>
+                Saisie trésorerie : recrutement, formation, car, pull, robot, événement.
+              </p>
               <div className="form-group">
                 <label>Type de cotisation</label>
                 <select
@@ -566,17 +935,16 @@ export default function ManageFinance() {
                 <div className="form-group">
                   <label>
                     {paymentForm.cotisation_type === 'formation'
-                      ? 'Formation (inscrits uniquement)'
+                      ? 'Formation (optionnel)'
                       : paymentForm.cotisation_type === 'evenement'
-                        ? 'Événement (inscrits uniquement)'
-                        : 'Formulaire / offre'}
+                        ? 'Événement (optionnel)'
+                        : 'Formulaire / offre (optionnel)'}
                   </label>
                   <select
-                    required
                     value={paymentForm.detail_ref_id}
                     onChange={(e) => selectPaymentRef(e.target.value)}
                   >
-                    <option value="">Choisir…</option>
+                    <option value="">—</option>
                     {formOptions.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.titre}
@@ -588,13 +956,6 @@ export default function ManageFinance() {
                       </option>
                     ))}
                   </select>
-                  {!formOptions.length ? (
-                    <small className={styles.meta}>
-                      {OFFER_MANAGED.includes(paymentForm.cotisation_type)
-                        ? 'Créez un formulaire externe ci-dessous (lien site officiel).'
-                        : 'Aucune option disponible.'}
-                    </small>
-                  ) : null}
                 </div>
               ) : null}
               {paymentForm.cotisation_type === 'pull' ? (
@@ -603,46 +964,58 @@ export default function ManageFinance() {
                   <select
                     required
                     value={paymentForm.detail_option || 'tshirt'}
-                    onChange={(e) =>
-                      setPaymentForm({ ...paymentForm, detail_option: e.target.value })
-                    }
+                    onChange={(e) => applyPullPrice(formOptions, e.target.value)}
                   >
                     <option value="tshirt">T-shirt</option>
-                    <option value="capuche">Capuche</option>
+                    <option value="capuche">Hoodie</option>
                   </select>
                 </div>
               ) : null}
               <div className="form-group">
                 <label>
-                  {selectedOffer?.external_url || OFFER_MANAGED.includes(paymentForm.cotisation_type)
-                    ? 'Membre'
-                    : 'Membre (ayant rempli le formulaire)'}
+                  {usingEligible
+                    ? 'Membre ayant rempli le formulaire'
+                    : 'Membre (taper le nom pour filtrer)'}
                 </label>
+                <input
+                  type="search"
+                  placeholder="Rechercher par nom ou email…"
+                  value={memberQuery}
+                  onChange={(e) => setMemberQuery(e.target.value)}
+                  autoComplete="off"
+                />
+                {usingEligible ? (
+                  <small className={styles.meta}>
+                    {NEEDS_REF.includes(paymentForm.cotisation_type) &&
+                    !paymentForm.detail_ref_id &&
+                    paymentForm.cotisation_type !== 'pull'
+                      ? 'Choisissez d’abord le formulaire / l’offre ci-dessus.'
+                      : 'Uniquement les personnes qui ont soumis le formulaire.'}
+                  </small>
+                ) : null}
                 <select
                   required
                   value={paymentForm.member_id}
                   onChange={(e) => setPaymentForm({ ...paymentForm, member_id: e.target.value })}
-                  disabled={
-                    NEEDS_REF.includes(paymentForm.cotisation_type) &&
-                    !paymentForm.detail_ref_id
-                  }
+                  style={{ marginTop: '0.5rem' }}
                 >
                   <option value="">
-                    {eligibleMembers.length
-                      ? 'Choisir…'
-                      : 'Aucun membre éligible pour cette sélection'}
+                    {membersForPayment.length
+                      ? 'Choisir le membre…'
+                      : usingEligible
+                        ? 'Aucun inscrit au formulaire'
+                        : 'Aucun membre trouvé'}
                   </option>
-                  {eligibleMembers.map((m) => (
+                  {membersForPayment.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.nom} — {m.email}
-                      {m.detail_option ? ` (${PULL_OPTIONS[m.detail_option] || m.detail_option})` : ''}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="form-row two">
                 <div className="form-group">
-                  <label>Montant ({devise})</label>
+                  <label>Montant reçu ({devise})</label>
                   <input
                     type="number"
                     min="0.01"
@@ -650,6 +1023,7 @@ export default function ManageFinance() {
                     required
                     value={paymentForm.montant}
                     onChange={(e) => setPaymentForm({ ...paymentForm, montant: e.target.value })}
+                    placeholder="Montant du formulaire"
                   />
                 </div>
                 <div className="form-group">
@@ -702,165 +1076,6 @@ export default function ManageFinance() {
                 {saving ? '…' : 'Enregistrer le paiement'}
               </button>
             </form>
-
-            {OFFER_MANAGED.includes(paymentForm.cotisation_type) ? (
-              <>
-                <form
-                  className={`card form ${styles.panel}`}
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setSaving(true);
-                    setError('');
-                    try {
-                      await api.post('/finance/offers', {
-                        cotisation_type: paymentForm.cotisation_type,
-                        titre: offerDraft.titre,
-                        description: offerDraft.description,
-                        external_url: offerDraft.external_url,
-                        ouvert: true,
-                      });
-                      flash('Formulaire ouvert — lien visible dans le menu membre.');
-                      setOfferDraft({
-                        titre: '',
-                        description: '',
-                        external_url: '',
-                        ouvert: true,
-                      });
-                      await loadFormOptions(paymentForm.cotisation_type);
-                    } catch (err) {
-                      setError(err.response?.data?.message || 'Création impossible.');
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                >
-                  <h3>Ouvrir un formulaire (site officiel)</h3>
-                  <p className={styles.meta} style={{ marginTop: 0 }}>
-                    Les membres connectés verront un lien dans la barre de navigation. Fermez-le
-                    quand les inscriptions sont terminées.
-                  </p>
-                  <div className="form-group">
-                    <label>Titre (menu membre)</label>
-                    <input
-                      required
-                      value={offerDraft.titre}
-                      onChange={(e) => setOfferDraft({ ...offerDraft, titre: e.target.value })}
-                      placeholder={
-                        paymentForm.cotisation_type === 'pull'
-                          ? 'Ex. Pull club 2026'
-                          : paymentForm.cotisation_type === 'deplacement'
-                            ? 'Ex. Déplacement Eurobot'
-                            : 'Ex. Cotisation robot 2026'
-                      }
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>URL du formulaire (site officiel)</label>
-                    <input
-                      type="url"
-                      required
-                      value={offerDraft.external_url}
-                      onChange={(e) =>
-                        setOfferDraft({ ...offerDraft, external_url: e.target.value })
-                      }
-                      placeholder="https://…"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Description (optionnel)</label>
-                    <textarea
-                      rows={2}
-                      value={offerDraft.description}
-                      onChange={(e) =>
-                        setOfferDraft({ ...offerDraft, description: e.target.value })
-                      }
-                    />
-                  </div>
-                  <button type="submit" className="btn btn-secondary" disabled={saving}>
-                    Ouvrir le formulaire
-                  </button>
-                </form>
-
-                {offers.length > 0 && (
-                  <div className={`card ${styles.panel}`}>
-                    <h3>Formulaires {paymentForm.cotisation_type}</h3>
-                    <ul className={styles.offerList}>
-                      {offers.map((o) => (
-                        <li key={o.id} className={styles.offerRow}>
-                          <div>
-                            <strong>{o.titre}</strong>
-                            {o.external_url ? (
-                              <a
-                                href={o.external_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={styles.offerLink}
-                              >
-                                {o.external_url}
-                              </a>
-                            ) : (
-                              <span className={styles.meta}>URL manquante</span>
-                            )}
-                          </div>
-                          <div className={styles.offerActions}>
-                            <label className={styles.toggleLabel}>
-                              <input
-                                type="checkbox"
-                                checked={!!o.ouvert}
-                                disabled={saving}
-                                onChange={async (e) => {
-                                  setSaving(true);
-                                  setError('');
-                                  try {
-                                    await api.put(`/finance/offers/${o.id}`, {
-                                      ouvert: e.target.checked,
-                                    });
-                                    flash(e.target.checked ? 'Formulaire ouvert.' : 'Formulaire fermé.');
-                                    await loadOffers(paymentForm.cotisation_type);
-                                  } catch (err) {
-                                    setError(
-                                      err.response?.data?.message || 'Mise à jour impossible.'
-                                    );
-                                  } finally {
-                                    setSaving(false);
-                                  }
-                                }}
-                              />
-                              {o.ouvert ? 'Ouvert' : 'Fermé'}
-                            </label>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              disabled={saving}
-                              onClick={async () => {
-                                const ok = await confirm({
-                                  title: 'Supprimer ce formulaire ?',
-                                  message: 'Le lien disparaîtra du menu membre.',
-                                  tone: 'danger',
-                                });
-                                if (!ok) return;
-                                setSaving(true);
-                                try {
-                                  await api.delete(`/finance/offers/${o.id}`);
-                                  flash('Formulaire supprimé.');
-                                  await loadFormOptions(paymentForm.cotisation_type);
-                                } catch (err) {
-                                  setError(err.response?.data?.message || 'Suppression impossible.');
-                                } finally {
-                                  setSaving(false);
-                                }
-                              }}
-                            >
-                              Supprimer
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
-            ) : null}
             </div>
 
             <div className={styles.panelGrow}>
@@ -928,7 +1143,6 @@ export default function ManageFinance() {
                     <tr>
                       <th>Membre</th>
                       <th>Payé</th>
-                      <th>Reste</th>
                       <th>Statut</th>
                       <th />
                     </tr>
@@ -940,27 +1154,53 @@ export default function ManageFinance() {
                           <strong>{c.nom}</strong>
                           <div className={styles.meta}>{c.email}</div>
                         </td>
-                        <td>{money(c.paid_total, devise)}</td>
-                        <td>{money(c.remaining, devise)}</td>
+                        <td>
+                          {money(c.paid_total, devise)}
+                          {c.payments_count > 1 && c.payments_breakdown ? (
+                            <div className={styles.meta}>{c.payments_breakdown}</div>
+                          ) : c.last_detail ? (
+                            <div className={styles.meta}>
+                              {c.last_detail === 'tshirt'
+                                ? 'T-shirt'
+                                : c.last_detail === 'capuche'
+                                  ? 'Hoodie'
+                                  : c.last_detail}
+                            </div>
+                          ) : null}
+                        </td>
                         <td>
                           <span className={`${styles.badge} ${styles[`st_${c.statut}`]}`}>
                             {STATUS_LABEL[c.statut]}
                           </span>
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => openHistory(c.member_id)}
-                          >
-                            Historique
-                          </button>
+                          <div className={styles.rowActions}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => openHistory(c.member_id)}
+                            >
+                              Historique
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() => removeMemberFromCotisations(c.member_id, c.nom)}
+                            >
+                              Supprimer
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {!cotisations.length && <p className={styles.empty}>Aucun membre trouvé.</p>}
+                {!cotisations.length && (
+                  <p className={styles.empty}>
+                    Aucun membre avec un paiement pour ce type. Enregistrez un paiement à gauche pour
+                    le voir ici.
+                  </p>
+                )}
               </div>
               {cotPages > 1 && (
                 <div className={styles.pager}>
@@ -990,80 +1230,40 @@ export default function ManageFinance() {
         </section>
       )}
 
-      {tab === 'settings' && settings && (
-        <>
-          {renderPullFormsPanel()}
-          <form className={`card form ${styles.settingsCard}`} onSubmit={saveSettings}>
-          <h3>Types de cotisation</h3>
-          <p className={styles.meta} style={{ marginTop: 0 }}>
-            Définissez le montant attendu pour chaque type (0 = suivi libre sans montant fixe).
-          </p>
-          <div className={styles.typeTable}>
-            {(settings.types || []).map((t, idx) => (
-              <div key={t.code} className={styles.typeRow}>
-                <strong>{t.label}</strong>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={t.montant_defaut}
-                  onChange={(e) => {
-                    const types = [...settings.types];
-                    types[idx] = { ...types[idx], montant_defaut: e.target.value };
-                    setSettings({ ...settings, types });
-                  }}
-                />
-                <label className={styles.switchInline}>
-                  <input
-                    type="checkbox"
-                    checked={!!t.actif}
-                    onChange={(e) => {
-                      const types = [...settings.types];
-                      types[idx] = { ...types[idx], actif: e.target.checked };
-                      setSettings({ ...settings, types });
-                    }}
-                  />
-                  Actif
-                </label>
-              </div>
-            ))}
-          </div>
-
-          <h3 style={{ marginTop: '1.5rem' }}>Référence générale</h3>
-          <div className="form-row two">
-            <div className="form-group">
-              <label>Année de référence</label>
-              <input
-                type="number"
-                value={settings.cotisation_annee}
-                onChange={(e) =>
-                  setSettings({ ...settings, cotisation_annee: e.target.value })
-                }
-              />
-            </div>
-            <div className="form-group">
-              <label>Date d’échéance</label>
-              <input
-                type="date"
-                value={String(settings.date_echeance || '').slice(0, 10)}
-                onChange={(e) =>
-                  setSettings({ ...settings, date_echeance: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label>Devise</label>
-            <input
-              value={settings.devise}
-              onChange={(e) => setSettings({ ...settings, devise: e.target.value })}
+      {tab === 'mails' && settings && (
+        <section className={styles.section}>
+          <form onSubmit={saveMailTemplate}>
+            <MailTemplateEditor
+              title="Confirmation de paiement"
+              description="Envoyé automatiquement au membre quand le trésorier enregistre un paiement dans Cotisations."
+              placeholders={MAIL_PLACEHOLDERS}
+              sampleVars={{
+                Nom: 'Salsabil Ben Ammar',
+                Type: 'Cotisation recrutement',
+                Annee: String(new Date().getFullYear()),
+                Montant: '30,00 DT',
+                Devise: 'DT',
+                DatePaiement: new Date().toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                }),
+                Methode: 'Espèces',
+                Detail: '—',
+                Note: '—',
+              }}
+              subject={settings.mail_paiement_sujet || DEFAULT_MAIL_SUJET}
+              body={settings.mail_paiement_corps || DEFAULT_MAIL_CORPS}
+              onSubjectChange={(v) => setSettings({ ...settings, mail_paiement_sujet: v })}
+              onBodyChange={(v) => setSettings({ ...settings, mail_paiement_corps: v })}
             />
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            Enregistrer
-          </button>
-        </form>
-        </>
+            <div style={{ marginTop: '1rem' }}>
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? 'Enregistrement…' : 'Enregistrer le mail'}
+              </button>
+            </div>
+          </form>
+        </section>
       )}
 
       {history && (
@@ -1085,7 +1285,7 @@ export default function ManageFinance() {
                   <th>Montant</th>
                   <th>Méthode</th>
                   <th>Année</th>
-                  <th />
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1108,7 +1308,7 @@ export default function ManageFinance() {
                     <td>
                       <button
                         type="button"
-                        className="btn btn-secondary btn-sm"
+                        className="btn btn-danger btn-sm"
                         onClick={() => deletePayment(p.id)}
                       >
                         Supprimer

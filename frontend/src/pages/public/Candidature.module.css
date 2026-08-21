@@ -106,6 +106,52 @@
   gap: 0.55rem;
 }
 
+.roleButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.roleBtn {
+  appearance: none;
+  border: 2px solid rgba(22, 57, 107, 0.25);
+  background: #fff;
+  color: #142033;
+  border-radius: 12px;
+  padding: 0.95rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.roleBtn:hover {
+  border-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.roleBtnActive {
+  border-color: #16396b;
+  background: linear-gradient(135deg, #16396b, #2563eb);
+  color: #fff;
+}
+
+.roleHint {
+  margin: 0.75rem 0 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+  color: #0f2748;
+}
+
 .choice {
   display: flex;
   align-items: center;
@@ -131,5 +177,9 @@
   .introCard,
   .fieldCard {
     padding: 1.1rem;
+  }
+
+  .roleButtons {
+    grid-template-columns: 1fr;
   }
 }

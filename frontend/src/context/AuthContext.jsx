@@ -103,9 +103,10 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'secretaire';
   /** Accès fonctionnalités membres (inscriptions formations, Coin RH, contenus réservés). */
-  const isMember = user?.role === 'member' || user?.role === 'admin';
+  const isMember =
+    user?.role === 'member' || user?.role === 'admin' || user?.role === 'secretaire';
   const isClubMemberOnly = user?.role === 'member';
 
   return (

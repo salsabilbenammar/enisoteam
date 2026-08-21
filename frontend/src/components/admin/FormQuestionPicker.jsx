@@ -20,7 +20,13 @@ function emptyCustom() {
  * Bouton + panneau pour choisir des questions (banque + custom)
  * et les intégrer au formulaire.
  */
-export default function FormQuestionPicker({ value = [], onChange }) {
+export default function FormQuestionPicker({
+  value = [],
+  onChange,
+  title = 'Questions du formulaire',
+  intro = "Choisissez des questions dans la banque (ou créez les vôtres), puis intégrez-les au formulaire d'inscription.",
+  buttonLabel = 'Choisir les questions du formulaire',
+}) {
   const [open, setOpen] = useState(false);
   const [draftIds, setDraftIds] = useState([]);
   const [draftCustoms, setDraftCustoms] = useState([]);
@@ -83,7 +89,10 @@ export default function FormQuestionPicker({ value = [], onChange }) {
   const integrate = () => {
     const fromBank = FORM_QUESTION_BANK.filter((q) => draftIds.includes(q.id)).map(toAdminField);
     const prevOrder = (value || []).map((f) => f.id);
-    const merged = [...fromBank, ...draftCustoms];
+    const prevById = Object.fromEntries((value || []).map((f) => [f.id, f]));
+    const merged = [...fromBank, ...draftCustoms].map((f) =>
+      prevById[f.id] ? { ...f, required: prevById[f.id].required } : f
+    );
     merged.sort((a, b) => {
       const ia = prevOrder.indexOf(a.id);
       const ib = prevOrder.indexOf(b.id);
@@ -99,11 +108,8 @@ export default function FormQuestionPicker({ value = [], onChange }) {
   return (
     <div className={styles.wrap}>
       <div>
-        <label>Questions du formulaire</label>
-        <p className={styles.intro}>
-          Choisissez des questions dans la banque (ou créez les vôtres), puis intégrez-les au
-          formulaire d&apos;inscription.
-        </p>
+        <label>{title}</label>
+        <p className={styles.intro}>{intro}</p>
       </div>
 
       {(value || []).length === 0 ? (
@@ -112,11 +118,37 @@ export default function FormQuestionPicker({ value = [], onChange }) {
         <ul className={styles.selectedList}>
           {value.map((f) => (
             <li key={f.id} className={styles.selectedItem}>
-              <strong>
-                {f.label}
-                {f.required ? <span className={styles.requiredMark}>*</span> : null}
-              </strong>
-              <span className={styles.chip}>{f.type}</span>
+              <div className={styles.selectedBody}>
+                <strong>
+                  {f.label}
+                  {f.required ? <span className={styles.requiredMark}>*</span> : null}
+                </strong>
+                <span className={styles.chip}>{f.type}</span>
+              </div>
+              <div className={styles.itemActions}>
+                <label className={styles.checkRow}>
+                  <input
+                    className={styles.checkbox}
+                    type="checkbox"
+                    checked={!!f.required}
+                    onChange={() =>
+                      onChange(
+                        value.map((x) =>
+                          x.id === f.id ? { ...x, required: !x.required } : x
+                        )
+                      )
+                    }
+                  />
+                  Obligatoire
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => onChange(value.filter((x) => x.id !== f.id))}
+                >
+                  Retirer
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -124,7 +156,7 @@ export default function FormQuestionPicker({ value = [], onChange }) {
 
       <div className={styles.actions}>
         <button type="button" className="btn btn-primary btn-sm" onClick={openPicker}>
-          Choisir les questions du formulaire
+          {buttonLabel}
         </button>
         {(value || []).length > 0 && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange([])}>

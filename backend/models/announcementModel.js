@@ -12,12 +12,27 @@ async function getById(id) {
   return rows[0] || null;
 }
 
+function cleanOptional(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
 async function create(data) {
-  const { titre, contenu, image, lien_formulaire, date_publication } = data;
+  const { titre, contenu, image, lien_formulaire, date_publication, salle, heure } = data;
   const [result] = await pool.execute(
-    `INSERT INTO announcements (titre, contenu, image, lien_formulaire, date_publication)
-     VALUES (?, ?, ?, ?, ?)`,
-    [titre, contenu, image || null, lien_formulaire || null, date_publication]
+    `INSERT INTO announcements
+      (titre, contenu, image, lien_formulaire, date_publication, salle, heure)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      titre,
+      contenu,
+      image || null,
+      lien_formulaire || null,
+      date_publication,
+      cleanOptional(salle),
+      cleanOptional(heure),
+    ]
   );
   return getById(result.insertId);
 }
@@ -28,7 +43,8 @@ async function update(id, data) {
   const image = data.image !== undefined ? data.image : existing.image;
   await pool.execute(
     `UPDATE announcements
-     SET titre = ?, contenu = ?, image = ?, lien_formulaire = ?, date_publication = ?
+     SET titre = ?, contenu = ?, image = ?, lien_formulaire = ?, date_publication = ?,
+         salle = ?, heure = ?
      WHERE id = ?`,
     [
       data.titre,
@@ -36,6 +52,8 @@ async function update(id, data) {
       image,
       data.lien_formulaire || null,
       data.date_publication,
+      cleanOptional(data.salle),
+      cleanOptional(data.heure),
       id,
     ]
   );

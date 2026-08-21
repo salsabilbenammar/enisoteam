@@ -16,6 +16,9 @@ const dirs = [
   'project-members',
   'project-steps',
   'finance',
+  'merch',
+  'deplacements',
+  'pv-reunions',
 ];
 
 dirs.forEach((dir) => {
@@ -153,6 +156,12 @@ const uploadFinanceJustificatif = multer({
   fileFilter: stepDocFilter,
 }).single('justificatif');
 
+const uploadPvDocument = multer({
+  storage: makeStorage('pv-reunions'),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: stepDocFilter,
+}).single('fichier');
+
 module.exports = {
   uploadImage,
   uploadMedia,
@@ -161,5 +170,6 @@ module.exports = {
   uploadProjectMemberPhotos,
   uploadProjectStepDocument,
   uploadFinanceJustificatif,
+  uploadPvDocument,
   uploadsRoot,
 };

@@ -4,6 +4,7 @@ const txModel = require('../models/financeTransactionModel');
 const memberModel = require('../models/memberModel');
 const typeModel = require('../models/financeCotisationTypeModel');
 const offerModel = require('../models/financeCotisationOfferModel');
+const boardModel = require('../models/boardModel');
 const candidateModel = require('../models/recruitmentCandidateModel');
 const { sendMail } = require('../services/emailService');
 const { buildCotisationPaymentEmail } = require('../services/financeMailTemplates');
@@ -216,61 +217,32 @@ async function createPayment(req, res, next) {
       return res.status(400).json({ message: 'Date de paiement invalide.' });
     }
 
-    // Résoudre la référence formulaire + vérifier éligibilité
-    let eligible = [];
-    if (typeCode === 'formation') {
-      if (!detailRefId) {
-        return res.status(400).json({ message: 'Choisissez une formation.' });
-      }
+    // Contexte optionnel (formation / offre) — le trésorier choisit librement le membre
+    if (typeCode === 'formation' && detailRefId) {
       const training = await offerModel.findTraining(detailRefId);
       if (!training) return res.status(404).json({ message: 'Formation introuvable.' });
-      detailNom = training.titre;
-      eligible = await offerModel.eligibleMembersForTraining(detailRefId);
-    } else if (typeCode === 'evenement') {
-      if (!detailRefId) {
-        return res.status(400).json({ message: 'Choisissez un événement.' });
-      }
+      if (!detailNom) detailNom = training.titre;
+    } else if (typeCode === 'evenement' && detailRefId) {
       const event = await offerModel.findEvent(detailRefId);
       if (!event) return res.status(404).json({ message: 'Événement introuvable.' });
-      detailNom = event.titre;
-      eligible = await offerModel.eligibleMembersForEvent(detailRefId);
-    } else if (['pull', 'deplacement', 'robot'].includes(typeCode)) {
-      if (!detailRefId) {
-        return res.status(400).json({ message: 'Choisissez le formulaire / offre concerné.' });
-      }
+      if (!detailNom) detailNom = event.titre;
+    } else if (['pull', 'deplacement', 'robot'].includes(typeCode) && detailRefId) {
       const offer = await offerModel.findOffer(detailRefId);
       if (!offer || offer.cotisation_type !== typeCode) {
         return res.status(404).json({ message: 'Offre introuvable pour ce type.' });
       }
-      detailNom = offer.titre;
-      eligible = await offerModel.eligibleMembersForOffer(detailRefId);
-      if (typeCode === 'pull' && !['tshirt', 'capuche'].includes(detailOption)) {
-        return res.status(400).json({
-          message: 'Pour le pull, choisissez t-shirt ou capuche.',
-        });
-      }
-    } else if (typeCode === 'recrutement') {
-      eligible = await offerModel.eligibleMembersForRecrutement();
+      if (!detailNom) detailNom = offer.titre;
     }
-
-    if (typeCode !== 'recrutement' || eligible.length) {
-      const ok = eligible.some((m) => Number(m.id) === memberId);
-      if (typeCode !== 'recrutement' && !ok) {
-        return res.status(400).json({
-          message:
-            'Ce membre n’a pas rempli le formulaire correspondant. Choisissez parmi la liste filtrée.',
-        });
-      }
-      if (typeCode === 'recrutement' && eligible.length && !ok) {
-        return res.status(400).json({
-          message:
-            'Ce membre n’apparaît pas dans les candidats au recrutement (email).',
-        });
-      }
+    if (typeCode === 'pull' && !['tshirt', 'capuche'].includes(detailOption)) {
+      return res.status(400).json({
+        message: 'Pour le pull, choisissez t-shirt ou capuche.',
+      });
     }
 
     const member = await memberModel.findById(memberId);
-    if (!member) return res.status(404).json({ message: 'Membre introuvable.' });
+    if (!member || Number(member.actif) !== 1) {
+      return res.status(404).json({ message: 'Membre introuvable ou inactif.' });
+    }
 
     const optionLabel =
       detailOption === 'tshirt'
@@ -386,11 +358,49 @@ async function removePayment(req, res, next) {
     const payment = await paymentModel.findById(req.params.id);
     if (!payment) return res.status(404).json({ message: 'Paiement introuvable.' });
 
-    if (payment.transaction_id) {
-      await txModel.remove(payment.transaction_id, adminName(req));
+    const transactionId = payment.transaction_id;
+    // Délier d’abord pour éviter tout conflit de clé étrangère
+    if (transactionId) {
+      await paymentModel.linkTransaction(payment.id, null);
     }
     await paymentModel.remove(payment.id);
+    if (transactionId) {
+      await txModel.remove(transactionId, adminName(req));
+    }
     res.json({ message: 'Paiement supprimé.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Supprime tous les paiements d’un membre pour type + année → il quitte la liste cotisations */
+async function removeMemberPayments(req, res, next) {
+  try {
+    const memberId = Number(req.params.memberId);
+    const annee = Number(req.query.annee || new Date().getFullYear());
+    const type = String(req.query.type || 'recrutement');
+    if (!memberId) return res.status(400).json({ message: 'Membre invalide.' });
+
+    const rows = await paymentModel.listIdsByMemberScope(memberId, { annee, type });
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Aucun paiement à supprimer pour ce membre.' });
+    }
+
+    for (const row of rows) {
+      const transactionId = row.transaction_id;
+      if (transactionId) {
+        await paymentModel.linkTransaction(row.id, null);
+      }
+      await paymentModel.remove(row.id);
+      if (transactionId) {
+        await txModel.remove(transactionId, adminName(req));
+      }
+    }
+
+    res.json({
+      message: 'Membre retiré de la liste (paiements supprimés).',
+      deleted: rows.length,
+    });
   } catch (err) {
     next(err);
   }
@@ -737,13 +747,13 @@ async function listOpenOffers(_req, res, next) {
       offerModel.listOffers({ openOnly: true }),
     ]);
     const pullOpen = pullForms
-      .filter((o) => o.ouvert && o.external_url)
-      .map(({ id, cotisation_type, titre, description, external_url, detail_option }) => ({
+      .filter((o) => o.ouvert)
+      .map(({ id, cotisation_type, titre, description, detail_option }) => ({
         id,
         cotisation_type,
         titre,
         description,
-        external_url,
+        external_url: `/boutique/${detail_option}`,
         detail_option,
       }));
     const otherOpen = offers
@@ -756,6 +766,134 @@ async function listOpenOffers(_req, res, next) {
         external_url,
       }));
     res.json([...pullOpen, ...otherOpen]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getMerchForm(req, res, next) {
+  try {
+    const variant = String(req.params.variant || '').trim();
+    if (!['tshirt', 'capuche'].includes(variant)) {
+      return res.status(400).json({ message: 'Produit invalide.' });
+    }
+    const [offer, member, board] = await Promise.all([
+      offerModel.ensurePullForm(variant),
+      req.user?.role === 'member' ? memberModel.findById(req.user.id) : null,
+      boardModel.getAll(),
+    ]);
+    if (!offer.ouvert) {
+      return res.status(403).json({ message: 'Ce formulaire de commande est fermé.' });
+    }
+    const treasurer = board.find((person) =>
+      String(person.poste || '').toLowerCase().includes('trésori')
+    );
+    res.json({
+      ...offer,
+      prix_total: Number(offer.prix_total ?? 40),
+      photo_url: offer.photo_url || null,
+      photo_back_url: offer.photo_back_url || null,
+      membre: member
+        ? { nom: member.nom, email: member.email, filiere: member.filiere }
+        : null,
+      tresoriere: {
+        nom: treasurer?.nom || 'Mariem Moussi',
+        telephone: treasurer?.telephone || null,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function submitMerchOrder(req, res, next) {
+  try {
+    const variant = String(req.params.variant || '').trim();
+    if (!['tshirt', 'capuche'].includes(variant)) {
+      return res.status(400).json({ message: 'Produit invalide.' });
+    }
+    const offer = await offerModel.ensurePullForm(variant);
+    if (!offer.ouvert) {
+      return res.status(403).json({ message: 'Ce formulaire de commande est fermé.' });
+    }
+    const fullName = String(req.body.nom_complet || '').trim();
+    const telephone = String(req.body.telephone || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const filiere = String(req.body.filiere || '').trim();
+    const taille = String(req.body.taille || '').trim().toUpperCase();
+    const acceptePaiement = String(req.body.accepte_paiement || '')
+      .trim()
+      .toLowerCase();
+    if (!fullName || !telephone || !email || !filiere || !taille || !acceptePaiement) {
+      return res.status(400).json({ message: 'Tous les champs sont obligatoires.' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Adresse email invalide.' });
+    }
+    if (!['S', 'M', 'L', 'XL', 'XXL'].includes(taille)) {
+      return res.status(400).json({ message: 'Taille invalide.' });
+    }
+    if (!['oui', 'non', 'yes', 'no', '1', '0', 'true', 'false'].includes(acceptePaiement)) {
+      return res.status(400).json({ message: 'Réponse de paiement invalide.' });
+    }
+    const willingToPay = ['oui', 'yes', '1', 'true'].includes(acceptePaiement);
+    const parts = fullName.split(/\s+/);
+    const prenom = parts.shift() || fullName;
+    const nom = parts.join(' ') || fullName;
+    const order = await offerModel.createInterest({
+      offer_id: offer.id,
+      member_id: req.user?.role === 'member' ? req.user.id : null,
+      prenom,
+      nom,
+      email,
+      telephone,
+      filiere,
+      taille,
+      detail_option: variant,
+      prix_total: Number(offer.prix_total ?? 40),
+      acompte: null,
+      accepte_paiement: willingToPay ? 1 : 0,
+    });
+    res.status(201).json({
+      message: 'Commande enregistrée. La trésorière vous contactera pour la suite.',
+      order,
+    });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        message: 'Une commande existe déjà avec cet email pour ce produit.',
+      });
+    }
+    next(err);
+  }
+}
+
+async function adminListMerchOrders(req, res, next) {
+  try {
+    res.json(await offerModel.listMerchOrders(String(req.query.variant || '').trim()));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function adminUpdateMerchOrderStatus(req, res, next) {
+  try {
+    const row = await offerModel.updateMerchOrderStatus(
+      req.params.id,
+      String(req.body.statut || '').trim()
+    );
+    if (!row) return res.status(400).json({ message: 'Commande ou statut invalide.' });
+    res.json(row);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function adminRemoveMerchOrder(req, res, next) {
+  try {
+    const ok = await offerModel.removeMerchOrder(req.params.id);
+    if (!ok) return res.status(404).json({ message: 'Commande introuvable.' });
+    res.json({ message: 'Commande supprimée.' });
   } catch (err) {
     next(err);
   }
@@ -776,17 +914,25 @@ async function adminUpdatePullForm(req, res, next) {
       return res.status(400).json({ message: 'Variante invalide (tshirt ou capuche).' });
     }
     const ouvert = req.body.ouvert;
+    const prixTotal =
+      req.body.prix_total === undefined || req.body.prix_total === ''
+        ? undefined
+        : Number(req.body.prix_total);
+    if (prixTotal !== undefined && (!Number.isFinite(prixTotal) || prixTotal <= 0)) {
+      return res.status(400).json({ message: 'Prix invalide.' });
+    }
+    const updates = {
+      ...(prixTotal !== undefined ? { prix_total: prixTotal } : {}),
+      ...(req.files?.photo?.[0]
+        ? { photo_url: `/uploads/merch/${req.files.photo[0].filename}` }
+        : {}),
+      ...(req.files?.photo_back?.[0]
+        ? { photo_back_url: `/uploads/merch/${req.files.photo_back[0].filename}` }
+        : {}),
+    };
     if (ouvert === true || ouvert === 1 || ouvert === '1') {
-      const url = String(req.body.external_url || '').trim();
-      const existing = await offerModel.findPullForm(variant);
-      const externalUrl = url || existing?.external_url || '';
-      if (!externalUrl) {
-        return res.status(400).json({
-          message: 'Indiquez l’URL du formulaire avant de l’ouvrir.',
-        });
-      }
       const row = await offerModel.updatePullForm(variant, {
-        external_url: externalUrl,
+        ...updates,
         ouvert: true,
       });
       return res.json({
@@ -795,11 +941,11 @@ async function adminUpdatePullForm(req, res, next) {
       });
     }
     if (ouvert === false || ouvert === 0 || ouvert === '0') {
-      const row = await offerModel.updatePullForm(variant, { ouvert: false });
+      const row = await offerModel.updatePullForm(variant, { ...updates, ouvert: false });
       return res.json({ message: 'Formulaire fermé.', form: row });
     }
     const row = await offerModel.updatePullForm(variant, {
-      external_url: req.body.external_url,
+      ...updates,
       ouvert: req.body.ouvert,
     });
     if (!row) return res.status(404).json({ message: 'Formulaire introuvable.' });
@@ -819,6 +965,7 @@ module.exports = {
   memberPaymentHistory,
   createPayment,
   removePayment,
+  removeMemberPayments,
   listTransactions,
   createTransaction,
   updateTransaction,
@@ -836,4 +983,9 @@ module.exports = {
   listOpenOffers,
   adminListPullForms,
   adminUpdatePullForm,
+  getMerchForm,
+  submitMerchOrder,
+  adminListMerchOrders,
+  adminUpdateMerchOrderStatus,
+  adminRemoveMerchOrder,
 };

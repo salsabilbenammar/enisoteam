@@ -38,7 +38,7 @@ async function login(req, res, next) {
         id: admin.id,
         nom: admin.nom,
         email: admin.email,
-        role: 'admin',
+        role: admin.role === 'secretaire' ? 'secretaire' : 'admin',
       };
       const token = signToken(tokenPayload(user));
       return res.json({ token, user, admin: user });
@@ -78,10 +78,15 @@ async function me(req, res, next) {
 
     let user;
 
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'secretaire') {
       const admin = await adminModel.findById(req.user.id);
-      if (!admin) return res.status(404).json({ message: 'Admin introuvable.' });
-      user = { id: admin.id, nom: admin.nom, email: admin.email, role: 'admin' };
+      if (!admin) return res.status(404).json({ message: 'Compte bureau introuvable.' });
+      user = {
+        id: admin.id,
+        nom: admin.nom,
+        email: admin.email,
+        role: admin.role === 'secretaire' ? 'secretaire' : 'admin',
+      };
     } else if (req.user.role === 'member') {
       const member = await memberModel.findById(req.user.id);
       if (!member) return res.status(404).json({ message: 'Membre introuvable.' });

@@ -19,15 +19,15 @@ function authMiddleware(req, res, next) {
   const decoded = verifyToken(req, res);
   if (!decoded) return;
   req.user = decoded;
-  if (decoded.role === 'admin') req.admin = decoded;
+  if (decoded.role === 'admin' || decoded.role === 'secretaire') req.admin = decoded;
   next();
 }
 
 function requireAdmin(req, res, next) {
   const decoded = verifyToken(req, res);
   if (!decoded) return;
-  if (decoded.role !== 'admin') {
-    return res.status(403).json({ message: 'Accès réservé aux administrateurs.' });
+  if (decoded.role !== 'admin' && decoded.role !== 'secretaire') {
+    return res.status(403).json({ message: 'Accès réservé aux comptes du bureau.' });
   }
   req.user = decoded;
   req.admin = decoded;
@@ -37,11 +37,15 @@ function requireAdmin(req, res, next) {
 function requireMember(req, res, next) {
   const decoded = verifyToken(req, res);
   if (!decoded) return;
-  if (decoded.role !== 'member' && decoded.role !== 'admin') {
+  if (
+    decoded.role !== 'member' &&
+    decoded.role !== 'admin' &&
+    decoded.role !== 'secretaire'
+  ) {
     return res.status(403).json({ message: 'Accès réservé aux membres inscrits du club.' });
   }
   req.user = decoded;
-  if (decoded.role === 'admin') req.admin = decoded;
+  if (decoded.role === 'admin' || decoded.role === 'secretaire') req.admin = decoded;
   next();
 }
 
@@ -51,7 +55,7 @@ function optionalAuth(req, _res, next) {
     try {
       const decoded = jwt.verify(header.slice(7), process.env.JWT_SECRET);
       req.user = decoded;
-      if (decoded.role === 'admin') req.admin = decoded;
+      if (decoded.role === 'admin' || decoded.role === 'secretaire') req.admin = decoded;
     } catch {
       // Token invalide : on continue en visiteur
     }
@@ -60,7 +64,11 @@ function optionalAuth(req, _res, next) {
 }
 
 function isClubMember(user) {
-  return user && (user.role === 'member' || user.role === 'admin');
+  return user && (
+    user.role === 'member' ||
+    user.role === 'admin' ||
+    user.role === 'secretaire'
+  );
 }
 
 function filterTrainingForPublic(training) {

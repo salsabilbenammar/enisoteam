@@ -42,6 +42,7 @@ CREATE TABLE `admins` (
   `nom`           VARCHAR(100)      NOT NULL,
   `email`         VARCHAR(150)      NOT NULL,
   `password_hash` VARCHAR(255)      NOT NULL,
+  `role`          ENUM('admin', 'secretaire') NOT NULL DEFAULT 'admin',
   `created_at`    TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_admins_email` (`email`)
@@ -177,6 +178,8 @@ CREATE TABLE `announcements` (
   `image`             VARCHAR(255)  DEFAULT NULL,
   `lien_formulaire`   VARCHAR(500)  DEFAULT NULL,
   `date_publication`  DATE          NOT NULL,
+  `salle`             VARCHAR(200)  DEFAULT NULL,
+  `heure`             VARCHAR(20)   DEFAULT NULL,
   `created_at`        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_announcements_date` (`date_publication` DESC)

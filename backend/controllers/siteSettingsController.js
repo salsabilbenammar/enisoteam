@@ -19,6 +19,7 @@ async function update(req, res, next) {
       linkedin_url: req.body.linkedin_url ?? current.linkedin_url,
       board_title: req.body.board_title ?? current.board_title,
       merit_rules: req.body.merit_rules ?? current.merit_rules,
+      reglement_interne: req.body.reglement_interne ?? current.reglement_interne,
     };
     if (!payload.contact_label || !payload.contact_phone) {
       return res.status(400).json({ message: 'Le contact (libellé et téléphone) est requis.' });

@@ -12,8 +12,9 @@ const BASE_LINKS = [
   { to: '/events', label: 'Événements' },
   { to: '/projets', label: 'Projets' },
   { to: '/mes-projets', label: 'Mes projets', membersOnly: true },
-  { to: '/selection-projets', label: 'Sélection projets', membersOnly: true },
+  { to: '/selection-projets', label: 'Sélection', membersOnly: true },
   { to: '/announcements', label: 'Annonces' },
+  { to: '/deplacements', label: 'Car & compétitions' },
   { to: '/rh', label: 'Coin RH', membersOnly: true },
 ];
 
@@ -78,8 +79,9 @@ export default function Navbar() {
     ...(isMember ? BASE_LINKS.filter((l) => l.membersOnly) : []),
     ...(isMember
       ? openForms.map((f) => ({
-          external: true,
-          href: f.external_url,
+          ...(String(f.external_url || '').startsWith('/')
+            ? { to: f.external_url }
+            : { external: true, href: f.external_url }),
           label: f.titre,
         }))
       : []),
@@ -98,7 +100,7 @@ export default function Navbar() {
 
   return (
     <header className={styles.header}>
-      <div className={`container ${styles.inner}`}>
+      <div className={styles.inner}>
         <Link to="/" className={styles.brand} onClick={closeAll}>
           <img src="/logo.png" alt="ENISO Team" className={styles.logoImg} />
           <span className={styles.brandText}>
@@ -151,7 +153,7 @@ export default function Navbar() {
                 Admin
               </Link>
               <button type="button" className={styles.ctaBtn} onClick={handleLogout}>
-                {user?.nom?.split(' ')[0] || 'Admin'} · Déconnexion
+                Déconnexion
               </button>
             </>
           ) : isMember ? (
@@ -164,7 +166,7 @@ export default function Navbar() {
                 Profil
               </NavLink>
               <button type="button" className={styles.ctaBtn} onClick={handleLogout}>
-                {user?.nom?.split(' ')[0] || 'Membre'} · Déconnexion
+                Déconnexion
               </button>
             </>
           ) : (

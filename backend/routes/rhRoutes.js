@@ -12,6 +12,9 @@ router.post('/suggestions', requireMember, rhController.createSuggestion);
 router.post('/training-requests', requireMember, rhController.createTrainingRequest);
 
 /* Admin — mérites */
+router.get('/merits/catalog', requireAdmin, rhController.getCatalog);
+router.get('/merits/scores', requireAdmin, rhController.getScores);
+router.post('/merits/sync', requireAdmin, rhController.syncMerits);
 router.get('/merits', requireAdmin, rhController.getAllMerits);
 router.post('/merits', requireAdmin, rhController.createMerit);
 router.delete('/merits/:id', requireAdmin, rhController.removeMerit);
