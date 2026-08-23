@@ -9,7 +9,7 @@ frontend/.env
 frontend/.env.local
 
 # Uploads (keep folder, ignore files)
-backend/uploads/**
+backend/uploads/*
 !backend/uploads/.gitkeep
 
 # Google service account secrets
