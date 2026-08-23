@@ -190,3 +190,13 @@ Résumé :
 4. MySQL + `backend/.env` + import SQL + migrations
 5. `bash deploy/oracle/deploy.sh`
 6. Nginx + Certbot (HTTPS)
+
+## 6. Sans carte (Vercel + Render + MySQL gratuit)
+
+Si tu n’as **pas de carte bancaire** : guide **[deploy/nocard/README.md](deploy/nocard/README.md)**
+
+```text
+MySQL (db4free) → API (Render free) → Site (Vercel)
+```
+
+Limites : API qui s’endort (~15 min), uploads peu persistants. Le site reste accessible, la 1re visite peut être lente.
