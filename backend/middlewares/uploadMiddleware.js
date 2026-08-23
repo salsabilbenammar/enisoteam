@@ -19,6 +19,8 @@ const dirs = [
   'merch',
   'deplacements',
   'pv-reunions',
+  'trainings',
+  'prospection',
 ];
 
 dirs.forEach((dir) => {
@@ -38,7 +40,9 @@ const cvMime = new Set([
 function makeStorage(subfolder) {
   return multer.diskStorage({
     destination: (_req, _file, cb) => {
-      cb(null, path.join(uploadsRoot, subfolder));
+      const dest = path.join(uploadsRoot, subfolder);
+      if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+      cb(null, dest);
     },
     filename: (_req, file, cb) => {
       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;

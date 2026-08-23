@@ -1,5 +1,6 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const pool = require('./config/db');
@@ -78,7 +79,27 @@ app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/logistique', require('./routes/logistiqueRoutes'));
 app.use('/api/prospection', require('./routes/prospectionRoutes'));
 
-app.use((_req, res) => {
+// Production: servir le build React (frontend/dist) sur le même host que l'API
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+const serveFrontend =
+  process.env.SERVE_FRONTEND !== 'false' && fs.existsSync(path.join(frontendDist, 'index.html'));
+
+if (serveFrontend) {
+  app.use(express.static(frontendDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      next();
+      return;
+    }
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
+app.use((req, res) => {
+  if (req.path.startsWith('/api')) {
+    res.status(404).json({ message: 'Route introuvable.' });
+    return;
+  }
   res.status(404).json({ message: 'Route introuvable.' });
 });
 
@@ -86,5 +107,8 @@ app.use(errorMiddleware);
 
 app.listen(PORT, () => {
   console.log(`ENISO Team API démarrée sur http://localhost:${PORT}`);
+  if (serveFrontend) {
+    console.log(`Frontend (dist) servi depuis ${frontendDist}`);
+  }
   require('./services/recruitmentCron').startRecruitmentCron();
 });

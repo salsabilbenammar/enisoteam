@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "migrate:prod": "node ../database/migrate_production.js",
     "sheets:check": "node scripts/check-sheets.js",
     "sheets:test": "node scripts/check-sheets.js --write"
   },

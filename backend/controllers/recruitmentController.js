@@ -20,6 +20,7 @@ const {
   normalizeStream,
   isMediaStream,
 } = require('../utils/recruitmentStreams');
+const { frontendBase } = require('../utils/frontendUrl');
 
 function parseIds(body) {
   const raw = body.ids || body.candidate_ids || [];
@@ -31,10 +32,6 @@ function parseScheduleDate(dateStr, timeStr) {
   const t = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
   return `${dateStr} ${t}`;
-}
-
-function frontendBase() {
-  return (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
 }
 
 /** Date locale YYYY-MM-DD (serveur). */

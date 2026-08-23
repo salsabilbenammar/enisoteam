@@ -156,6 +156,7 @@ CREATE TABLE `trainings` (
 -- ------------------------------------------------------------
 CREATE TABLE `events` (
   `id`          INT UNSIGNED                    NOT NULL AUTO_INCREMENT,
+  `audience`    ENUM('public', 'membres')       NOT NULL DEFAULT 'public',
   `titre`       VARCHAR(200)                    NOT NULL,
   `description` TEXT                            NOT NULL,
   `date`        DATETIME                        NOT NULL,
@@ -166,6 +167,24 @@ CREATE TABLE `events` (
   PRIMARY KEY (`id`),
   KEY `idx_events_date` (`date`),
   KEY `idx_events_statut` (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Table : prospection_realizations
+-- Réalisations / partenariats prospection
+-- ------------------------------------------------------------
+CREATE TABLE `prospection_realizations` (
+  `id`               INT UNSIGNED              NOT NULL AUTO_INCREMENT,
+  `audience`         ENUM('public', 'membres') NOT NULL DEFAULT 'public',
+  `titre`            VARCHAR(200)              NOT NULL,
+  `description`      TEXT                      NULL,
+  `annee`            SMALLINT UNSIGNED         NULL,
+  `image`            VARCHAR(255)              NULL,
+  `ordre_affichage`  INT                       NOT NULL DEFAULT 0,
+  `created_at`       TIMESTAMP                 NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`       TIMESTAMP                 NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_prospection_ordre` (`ordre_affichage`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------

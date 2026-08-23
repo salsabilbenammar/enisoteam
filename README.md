@@ -113,3 +113,80 @@ Vérifiez que MySQL tourne, que la base `eniso_team` existe, et que `backend/.en
 ### CORS / login échoue
 
 Assurez-vous que le backend écoute sur le port 5000 et le frontend sur 5173, avec `FRONTEND_URL=http://localhost:5173`.
+
+## 4. Hébergement (production)
+
+Pour que **toutes** les fonctionnalités marchent en ligne (API, images, SPA, mails, rôles bureau) :
+
+### A. Base de données
+
+1. Importez `database/eniso_team.sql` **ou** utilisez une base déjà existante.
+2. Sur une base existante, lancez les migrations critiques :
+
+```powershell
+node database/migrate_production.js
+node database/seed_bureau_accounts.js
+```
+
+### B. Backend (`backend/.env`)
+
+Copiez `backend/.env.example` → `.env` et renseignez au minimum :
+
+| Variable | Production |
+|----------|------------|
+| `DB_*` | Identifiants MySQL de l’hébergeur |
+| `JWT_SECRET` | Secret long et unique |
+| `FRONTEND_URL` | URL publique du site, ex. `https://votredomaine.com` (une seule URL pour les e-mails) |
+| `SMTP_*` | Requis pour les mails recrutement / paiements |
+
+### C. Build frontend + démarrage
+
+**Option recommandée — même serveur (Express sert le site) :**
+
+```powershell
+cd frontend
+npm install
+npm run build
+cd ..\backend
+npm install
+npm start
+```
+
+Si `frontend/dist` existe, Express sert le site + `/api` + `/uploads` sur le même port (`PORT`, souvent 5000).  
+Ne pas définir `VITE_API_URL` (le frontend utilise `/api` en relatif).
+
+**Option alternative — reverse proxy (Nginx / cPanel / Apache) :**
+
+- `/` → fichiers de `frontend/dist` (fallback SPA → `index.html`)
+- `/api` et `/uploads` → Node (`localhost:5000`)
+- Build sans `VITE_API_URL`, ou avec `VITE_API_URL=https://votredomaine.com/api` si l’API est sur un autre domaine
+
+### D. Checklist post-déploiement
+
+- [ ] `GET /api/health` → `{ "status": "ok", "database": "connected" }`
+- [ ] Images / CV : dossier `backend/uploads` **persistant** (ne pas l’effacer au redéploiement)
+- [ ] Login admin `/admin/login` + modules (prospection, formations + affiche, audience événements)
+- [ ] Changer les mots de passe bureau par défaut après `seed_bureau_accounts.js`
+- [ ] Mails : `FRONTEND_URL` = URL réelle (sinon liens de réservation pointent vers localhost)
+
+### E. API séparée (domaine différent)
+
+```powershell
+# frontend/.env.production
+VITE_API_URL=https://api.votredomaine.com/api
+```
+
+Puis `npm run build`. Sur le backend : `FRONTEND_URL=https://votredomaine.com` et CORS autorisera cette origine.
+
+## 5. Oracle Cloud (gratuit — recommandé)
+
+Guide complet pas à pas : **[deploy/oracle/README.md](deploy/oracle/README.md)**
+
+Résumé :
+
+1. Créer une VM Ubuntu **Always Free** sur [cloud.oracle.com](https://cloud.oracle.com)
+2. Ouvrir les ports **22, 80, 443** (Security List)
+3. `git clone` → `sudo bash deploy/oracle/setup-server.sh`
+4. MySQL + `backend/.env` + import SQL + migrations
+5. `bash deploy/oracle/deploy.sh`
+6. Nginx + Certbot (HTTPS)

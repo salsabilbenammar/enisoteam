@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { frontendBase } = require('../utils/frontendUrl');
 
 const STATUSES = [
   'en_attente',
@@ -158,7 +159,7 @@ Merci.
 
 function buildPaymentConfirmedEmail(candidate, settings = {}, credentials = {}) {
   const nom = `${candidate.prenom} ${candidate.nom}`.trim();
-  const frontend = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const frontend = frontendBase();
   // Toujours la page de connexion membre (jamais /admin)
   const loginUrl = `${frontend}/login`;
   const email = credentials.email || candidate.email || '';
