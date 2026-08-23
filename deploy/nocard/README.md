@@ -43,16 +43,23 @@ JWT_SECRET=un_secret_long_au_hasard
 FRONTEND_URL=http://localhost:5173
 ```
 
-4. Importe le schéma + migrations :
+4. Importe le schéma + migrations **depuis ton PC** :
 
 ```powershell
 cd "c:\Desktop\eniso team"
-mysql -h db4free.net -u ton_user -p ton_nom_base < database\eniso_team.sql
+copy deploy\nocard\env.backend.example backend\.env
+notepad backend\.env
+```
+
+Remplis `DB_*` avec les infos db4free, puis :
+
+```powershell
+node database\import_sql.js
 node database\migrate_production.js
 node database\seed_bureau_accounts.js
 ```
 
-Si `mysql` n’est pas installé, utilise **phpMyAdmin** du site db4free pour importer `database/eniso_team.sql`, puis lance seulement les deux commandes `node`.
+> `import_sql.js` n’a pas besoin du client MySQL installé (uniquement Node).
 
 > db4free : base **de test**, peut être lente ou réinitialisée. Suffisant pour démarrer.
 

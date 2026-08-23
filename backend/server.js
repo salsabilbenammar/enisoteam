@@ -19,6 +19,9 @@ const galleryRoutes = require('./routes/galleryRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Derrière Render / Vercel / Nginx
+app.set('trust proxy', 1);
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -105,8 +108,8 @@ app.use((req, res) => {
 
 app.use(errorMiddleware);
 
-app.listen(PORT, () => {
-  console.log(`ENISO Team API démarrée sur http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`ENISO Team API démarrée sur le port ${PORT}`);
   if (serveFrontend) {
     console.log(`Frontend (dist) servi depuis ${frontendDist}`);
   }
