@@ -64,11 +64,12 @@ async function create(data) {
   const prix = payante && data.prix ? String(data.prix).trim() : null;
   const fifo = payante && data.fifo_paiement ? 1 : 0;
   const champs = serializeCustomFields(data);
+  const image = data.image || null;
   try {
     const [result] = await pool.execute(
       `INSERT INTO trainings
-        (titre, description, date, formateur, niveau, lien, inscription_ouverte, payante, prix, fifo_paiement, champs_personnalises)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (titre, description, date, formateur, niveau, lien, image, inscription_ouverte, payante, prix, fifo_paiement, champs_personnalises)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.titre,
         data.description,
@@ -76,6 +77,7 @@ async function create(data) {
         data.formateur || null,
         data.niveau || 'debutant',
         data.lien || null,
+        image,
         data.inscription_ouverte ? 1 : 0,
         payante,
         prix,
@@ -89,8 +91,8 @@ async function create(data) {
     try {
       const [result] = await pool.execute(
         `INSERT INTO trainings
-          (titre, description, date, formateur, niveau, lien, inscription_ouverte, payante, prix, champs_personnalises)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (titre, description, date, formateur, niveau, lien, inscription_ouverte, payante, prix, fifo_paiement, champs_personnalises)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.titre,
           data.description,
@@ -101,6 +103,7 @@ async function create(data) {
           data.inscription_ouverte ? 1 : 0,
           payante,
           prix,
+          fifo,
           champs,
         ]
       );
@@ -110,8 +113,8 @@ async function create(data) {
       try {
         const [result] = await pool.execute(
           `INSERT INTO trainings
-            (titre, description, date, formateur, niveau, lien, inscription_ouverte, payante, prix)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (titre, description, date, formateur, niveau, lien, inscription_ouverte, payante, prix, champs_personnalises)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             data.titre,
             data.description,
@@ -122,6 +125,7 @@ async function create(data) {
             data.inscription_ouverte ? 1 : 0,
             payante,
             prix,
+            champs,
           ]
         );
         return getById(result.insertId);
@@ -130,8 +134,8 @@ async function create(data) {
         try {
           const [result] = await pool.execute(
             `INSERT INTO trainings
-              (titre, description, date, formateur, niveau, lien, inscription_ouverte)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              (titre, description, date, formateur, niveau, lien, inscription_ouverte, payante, prix)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               data.titre,
               data.description,
@@ -140,24 +144,45 @@ async function create(data) {
               data.niveau || 'debutant',
               data.lien || null,
               data.inscription_ouverte ? 1 : 0,
+              payante,
+              prix,
             ]
           );
           return getById(result.insertId);
         } catch (err4) {
           if (err4.code !== 'ER_BAD_FIELD_ERROR') throw err4;
-          const [result] = await pool.execute(
-            `INSERT INTO trainings (titre, description, date, formateur, niveau, lien)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-              data.titre,
-              data.description,
-              data.date,
-              data.formateur || null,
-              data.niveau || 'debutant',
-              data.lien || null,
-            ]
-          );
-          return getById(result.insertId);
+          try {
+            const [result] = await pool.execute(
+              `INSERT INTO trainings
+                (titre, description, date, formateur, niveau, lien, inscription_ouverte)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                data.titre,
+                data.description,
+                data.date,
+                data.formateur || null,
+                data.niveau || 'debutant',
+                data.lien || null,
+                data.inscription_ouverte ? 1 : 0,
+              ]
+            );
+            return getById(result.insertId);
+          } catch (err5) {
+            if (err5.code !== 'ER_BAD_FIELD_ERROR') throw err5;
+            const [result] = await pool.execute(
+              `INSERT INTO trainings (titre, description, date, formateur, niveau, lien)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [
+                data.titre,
+                data.description,
+                data.date,
+                data.formateur || null,
+                data.niveau || 'debutant',
+                data.lien || null,
+              ]
+            );
+            return getById(result.insertId);
+          }
         }
       }
     }
@@ -194,11 +219,12 @@ async function update(id, data) {
         ? data.champs_personnalises
         : existing.champs_personnalises,
   });
+  const image = data.image !== undefined ? data.image : existing.image || null;
 
   try {
     await pool.execute(
       `UPDATE trainings
-       SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?,
+       SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?, image = ?,
            inscription_ouverte = ?, payante = ?, prix = ?, fifo_paiement = ?, champs_personnalises = ?
        WHERE id = ?`,
       [
@@ -208,6 +234,7 @@ async function update(id, data) {
         data.formateur || null,
         data.niveau || 'debutant',
         data.lien || null,
+        image,
         open,
         payante,
         prix,
@@ -222,7 +249,7 @@ async function update(id, data) {
       await pool.execute(
         `UPDATE trainings
          SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?,
-             inscription_ouverte = ?, payante = ?, prix = ?, champs_personnalises = ?
+             inscription_ouverte = ?, payante = ?, prix = ?, fifo_paiement = ?, champs_personnalises = ?
          WHERE id = ?`,
         [
           data.titre,
@@ -234,6 +261,7 @@ async function update(id, data) {
           open,
           payante,
           prix,
+          fifo,
           champs,
           id,
         ]
@@ -244,7 +272,7 @@ async function update(id, data) {
         await pool.execute(
           `UPDATE trainings
            SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?,
-               inscription_ouverte = ?, payante = ?, prix = ?
+               inscription_ouverte = ?, payante = ?, prix = ?, champs_personnalises = ?
            WHERE id = ?`,
           [
             data.titre,
@@ -256,6 +284,7 @@ async function update(id, data) {
             open,
             payante,
             prix,
+            champs,
             id,
           ]
         );
@@ -265,7 +294,7 @@ async function update(id, data) {
           await pool.execute(
             `UPDATE trainings
              SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?,
-                 inscription_ouverte = ?
+                 inscription_ouverte = ?, payante = ?, prix = ?
              WHERE id = ?`,
             [
               data.titre,
@@ -275,25 +304,47 @@ async function update(id, data) {
               data.niveau || 'debutant',
               data.lien || null,
               open,
+              payante,
+              prix,
               id,
             ]
           );
         } catch (err4) {
           if (err4.code !== 'ER_BAD_FIELD_ERROR') throw err4;
-          await pool.execute(
-            `UPDATE trainings
-             SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?
-             WHERE id = ?`,
-            [
-              data.titre,
-              data.description,
-              data.date,
-              data.formateur || null,
-              data.niveau || 'debutant',
-              data.lien || null,
-              id,
-            ]
-          );
+          try {
+            await pool.execute(
+              `UPDATE trainings
+               SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?,
+                   inscription_ouverte = ?
+               WHERE id = ?`,
+              [
+                data.titre,
+                data.description,
+                data.date,
+                data.formateur || null,
+                data.niveau || 'debutant',
+                data.lien || null,
+                open,
+                id,
+              ]
+            );
+          } catch (err5) {
+            if (err5.code !== 'ER_BAD_FIELD_ERROR') throw err5;
+            await pool.execute(
+              `UPDATE trainings
+               SET titre = ?, description = ?, date = ?, formateur = ?, niveau = ?, lien = ?
+               WHERE id = ?`,
+              [
+                data.titre,
+                data.description,
+                data.date,
+                data.formateur || null,
+                data.niveau || 'debutant',
+                data.lien || null,
+                id,
+              ]
+            );
+          }
         }
       }
     }

@@ -155,6 +155,7 @@ async function create(req, res, next) {
     if (isPayante && !String(prix || '').trim()) {
       return res.status(400).json({ message: 'Indiquez le montant pour une formation payante.' });
     }
+    const image = req.file ? `/uploads/trainings/${req.file.filename}` : null;
     const row = await trainingModel.create({
       titre,
       description,
@@ -162,6 +163,7 @@ async function create(req, res, next) {
       formateur,
       niveau,
       lien,
+      image,
       inscription_ouverte: parseOpen(inscription_ouverte),
       payante: isPayante,
       prix,
@@ -199,7 +201,7 @@ async function update(req, res, next) {
     if (isPayante && !String(prix || '').trim()) {
       return res.status(400).json({ message: 'Indiquez le montant pour une formation payante.' });
     }
-    const row = await trainingModel.update(req.params.id, {
+    const payload = {
       titre,
       description,
       date,
@@ -211,7 +213,9 @@ async function update(req, res, next) {
       prix,
       fifo_paiement: isPayante && parseOpen(fifo_paiement),
       champs_personnalises: parseJsonBody(champs_personnalises, []),
-    });
+    };
+    if (req.file) payload.image = `/uploads/trainings/${req.file.filename}`;
+    const row = await trainingModel.update(req.params.id, payload);
     if (!row) return res.status(404).json({ message: 'Formation introuvable.' });
     res.json(row);
   } catch (err) {

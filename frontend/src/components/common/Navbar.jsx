@@ -13,7 +13,7 @@ const BASE_LINKS = [
   { to: '/projets', label: 'Projets' },
   { to: '/mes-projets', label: 'Mes projets', membersOnly: true },
   { to: '/selection-projets', label: 'Sélection', membersOnly: true },
-  { to: '/announcements', label: 'Annonces' },
+  { to: '/announcements', label: 'Annonces', membersOnly: true },
   { to: '/deplacements', label: 'Car & compétitions' },
   { to: '/rh', label: 'Coin RH', membersOnly: true },
 ];
@@ -24,9 +24,17 @@ export default function Navbar() {
   const [candidatureOpen, setCandidatureOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [openForms, setOpenForms] = useState([]);
+  const [hasProspection, setHasProspection] = useState(false);
   const loginMenuRef = useRef(null);
   const { isAdmin, isMember, user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api
+      .get('/prospection/status')
+      .then((res) => setHasProspection(!!res.data?.has_items))
+      .catch(() => setHasProspection(false));
+  }, []);
 
   useEffect(() => {
     api
@@ -73,6 +81,7 @@ export default function Navbar() {
 
   const links = [
     ...BASE_LINKS.filter((l) => !l.membersOnly),
+    ...(hasProspection ? [{ to: '/prospection', label: 'Prospection' }] : []),
     ...(candidatureOpen ? [{ to: '/candidature', label: 'Candidature' }] : []),
     ...(mediaOpen ? [{ to: '/candidature-media', label: 'Media Babies' }] : []),
     // Espaces membres uniquement après connexion (identifiants reçus post-paiement)

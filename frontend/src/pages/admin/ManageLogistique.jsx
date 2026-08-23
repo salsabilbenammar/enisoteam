@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import NewFormLaunch from '../../components/admin/NewFormLaunch';
+import { useAuth } from '../../context/AuthContext';
 import styles from './ManageLogistique.module.css';
 
 const ETATS = [
@@ -60,6 +63,8 @@ function isOverdue(loan) {
 }
 
 export default function ManageLogistique() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('logistique');
   const confirm = useConfirm();
   const [tab, setTab] = useState('inventaire');
   const [items, setItems] = useState([]);
@@ -68,6 +73,7 @@ export default function ManageLogistique() {
   const [form, setForm] = useState(empty);
   const [loanForm, setLoanForm] = useState(emptyLoan);
   const [editId, setEditId] = useState(null);
+  const [composing, setComposing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
@@ -122,11 +128,23 @@ export default function ManageLogistique() {
   const reset = () => {
     setForm(empty);
     setEditId(null);
+    setComposing(false);
+  };
+
+  const startNew = () => {
+    setForm(empty);
+    setEditId(null);
+    setTab('inventaire');
+    setComposing(true);
+    setError('');
+    setSuccess('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const onEdit = (item) => {
     setTab('inventaire');
     setEditId(item.id);
+    setComposing(true);
     setForm({
       nom: item.nom || '',
       categorie: item.categorie || '',
@@ -277,6 +295,9 @@ export default function ManageLogistique() {
         </p>
       </header>
 
+      <ReadOnlyBanner module="logistique" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
@@ -318,125 +339,132 @@ export default function ManageLogistique() {
 
       {tab === 'inventaire' && (
         <div className={styles.layout}>
-          <form className={styles.panel} onSubmit={onSubmit}>
-            <div className={styles.panelHead}>
-              <h2>{editId ? 'Modifier' : 'Nouveau matériel'}</h2>
-              {editId ? <span>#{editId}</span> : <span>Ajout rapide</span>}
-            </div>
-
-            <div className={styles.formGrid}>
-              <div className={styles.formRow}>
-                <div className="form-group">
-                  <label htmlFor="mat-nom">Nom</label>
-                  <input
-                    id="mat-nom"
-                    value={form.nom}
-                    onChange={(e) => setForm({ ...form, nom: e.target.value })}
-                    placeholder="Ex. Multimètre digital"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="mat-categorie">Catégorie</label>
-                  <input
-                    id="mat-categorie"
-                    value={form.categorie}
-                    onChange={(e) => setForm({ ...form, categorie: e.target.value })}
-                    placeholder="Électronique…"
-                  />
-                </div>
+          {!composing ? (
+            <NewFormLaunch
+              title="Formulaire vierge"
+              subtitle="Nouveau matériel inventaire"
+              onCreate={startNew}
+              disabled={!canEditPage}
+            />
+          ) : (
+            <form className={styles.panel} onSubmit={onSubmit}>
+              <div className={styles.panelHead}>
+                <h2>{editId ? 'Modifier' : 'Nouveau matériel'}</h2>
+                {editId ? <span>#{editId}</span> : <span>Ajout rapide</span>}
               </div>
 
-              <div className="form-group">
-                <label htmlFor="mat-desc">Description</label>
-                <textarea
-                  id="mat-desc"
-                  rows={3}
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Caractéristiques, marque, modèle…"
-                />
-              </div>
+              <div className={styles.formGrid}>
+                <div className={styles.formRow}>
+                  <div className="form-group">
+                    <label htmlFor="mat-nom">Nom</label>
+                    <input
+                      id="mat-nom"
+                      value={form.nom}
+                      onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                      placeholder="Ex. Multimètre digital"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="mat-categorie">Catégorie</label>
+                    <input
+                      id="mat-categorie"
+                      value={form.categorie}
+                      onChange={(e) => setForm({ ...form, categorie: e.target.value })}
+                      placeholder="Électronique…"
+                    />
+                  </div>
+                </div>
 
-              <div className={styles.formRow}>
                 <div className="form-group">
-                  <label htmlFor="mat-qte-total">Quantité totale</label>
-                  <input
-                    id="mat-qte-total"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={form.quantite_totale}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setForm((f) => ({
-                        ...f,
-                        quantite_totale: v,
-                        ...(!editId ? { quantite_disponible: v } : {}),
-                      }));
-                    }}
+                  <label htmlFor="mat-desc">Description</label>
+                  <textarea
+                    id="mat-desc"
+                    rows={3}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="Caractéristiques, marque, modèle…"
                   />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="mat-etat">État</label>
-                  <select
-                    id="mat-etat"
-                    value={form.etat}
-                    onChange={(e) => setForm({ ...form, etat: e.target.value })}
-                  >
-                    {ETATS.map((e) => (
-                      <option key={e.value} value={e.value}>
-                        {e.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
 
-              <div className={styles.formRow}>
+                <div className={styles.formRow}>
+                  <div className="form-group">
+                    <label htmlFor="mat-qte-total">Quantité totale</label>
+                    <input
+                      id="mat-qte-total"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={form.quantite_totale}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({
+                          ...f,
+                          quantite_totale: v,
+                          ...(!editId ? { quantite_disponible: v } : {}),
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="mat-etat">État</label>
+                    <select
+                      id="mat-etat"
+                      value={form.etat}
+                      onChange={(e) => setForm({ ...form, etat: e.target.value })}
+                    >
+                      {ETATS.map((e) => (
+                        <option key={e.value} value={e.value}>
+                          {e.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className={styles.formRow}>
+                  <div className="form-group">
+                    <label htmlFor="mat-lieu">Emplacement</label>
+                    <input
+                      id="mat-lieu"
+                      value={form.emplacement}
+                      onChange={(e) => setForm({ ...form, emplacement: e.target.value })}
+                      placeholder="Armoire A2…"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="mat-resp">Responsable</label>
+                    <input
+                      id="mat-resp"
+                      value={form.responsable}
+                      onChange={(e) => setForm({ ...form, responsable: e.target.value })}
+                      placeholder="Optionnel"
+                    />
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label htmlFor="mat-lieu">Emplacement</label>
-                  <input
-                    id="mat-lieu"
-                    value={form.emplacement}
-                    onChange={(e) => setForm({ ...form, emplacement: e.target.value })}
-                    placeholder="Armoire A2…"
+                  <label htmlFor="mat-notes">Notes</label>
+                  <textarea
+                    id="mat-notes"
+                    rows={2}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    placeholder="Observations…"
                   />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="mat-resp">Responsable</label>
-                  <input
-                    id="mat-resp"
-                    value={form.responsable}
-                    onChange={(e) => setForm({ ...form, responsable: e.target.value })}
-                    placeholder="Optionnel"
-                  />
-                </div>
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="mat-notes">Notes</label>
-                <textarea
-                  id="mat-notes"
-                  rows={2}
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  placeholder="Observations…"
-                />
-              </div>
-
-              <div className={styles.formActions}>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Enregistrement…' : editId ? 'Mettre à jour' : 'Ajouter'}
-                </button>
-                {editId && (
-                  <button type="button" className="btn btn-secondary" onClick={reset}>
-                    Annuler
+                <div className={styles.formActions}>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {saving ? 'Enregistrement…' : editId ? 'Mettre à jour' : 'Ajouter'}
                   </button>
-                )}
+                  <button type="button" className="btn btn-secondary" onClick={reset}>
+                    Fermer
+                  </button>
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          )}
 
           <section className={styles.inventory}>
             <div className={styles.panel}>
@@ -812,6 +840,7 @@ export default function ManageLogistique() {
           </section>
         </div>
       )}
+    </fieldset>
     </div>
   );
 }

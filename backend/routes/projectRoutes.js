@@ -1,11 +1,12 @@
-const express = require('express');
+﻿const express = require('express');
 const projectController = require('../controllers/projectController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { uploadImage, uploadProjectMemberPhotos, uploadProjectStepDocument } = require('../middlewares/uploadMiddleware');
-const { requireAdmin, requireMember, optionalAuth } = authMiddleware;
+const { requireAdmin, requireModuleWrite, requireMember, optionalAuth } = authMiddleware;
 
 const router = express.Router();
 const upload = uploadImage('projects').single('image');
+const canWrite = requireModuleWrite('projects');
 
 /* Public */
 router.get('/public', optionalAuth, projectController.getPublicProjects);
@@ -42,35 +43,35 @@ router.get(
 
 /* Admin */
 router.get('/settings', requireAdmin, projectController.adminGetSettings);
-router.put('/settings', requireAdmin, projectController.adminUpdateSettings);
+router.put('/settings', canWrite, projectController.adminUpdateSettings);
 
 router.get('/catalog', requireAdmin, projectController.adminListProjects);
-router.post('/catalog', requireAdmin, upload, projectController.adminCreateProject);
-router.put('/catalog/:id', requireAdmin, upload, projectController.adminUpdateProject);
-router.delete('/catalog/:id', requireAdmin, projectController.adminRemoveProject);
+router.post('/catalog', canWrite, upload, projectController.adminCreateProject);
+router.put('/catalog/:id', canWrite, upload, projectController.adminUpdateProject);
+router.delete('/catalog/:id', canWrite, projectController.adminRemoveProject);
 
 router.get('/catalog/:projectId/steps', requireAdmin, projectController.adminListProjectSteps);
-router.post('/catalog/:projectId/steps', requireAdmin, projectController.adminCreateProjectStep);
-router.put('/steps/:stepId', requireAdmin, projectController.adminUpdateProjectStep);
-router.delete('/steps/:stepId', requireAdmin, projectController.adminRemoveProjectStep);
+router.post('/catalog/:projectId/steps', canWrite, projectController.adminCreateProjectStep);
+router.put('/steps/:stepId', canWrite, projectController.adminUpdateProjectStep);
+router.delete('/steps/:stepId', canWrite, projectController.adminRemoveProjectStep);
 
 router.get('/submissions', requireAdmin, projectController.adminListSubmissions);
 router.get('/assignments', requireAdmin, projectController.adminListAssignments);
-router.post('/assignments/group', requireAdmin, projectController.adminAssignGroup);
-router.post('/assignments/solos', requireAdmin, projectController.adminAssignSolos);
-router.patch('/assignments/:id/progress', requireAdmin, projectController.adminUpdateAssignmentProgress);
-router.delete('/assignments/:id', requireAdmin, projectController.adminRemoveAssignment);
+router.post('/assignments/group', canWrite, projectController.adminAssignGroup);
+router.post('/assignments/solos', canWrite, projectController.adminAssignSolos);
+router.patch('/assignments/:id/progress', canWrite, projectController.adminUpdateAssignmentProgress);
+router.delete('/assignments/:id', canWrite, projectController.adminRemoveAssignment);
 
 router.get('/assignments/pending-steps', requireAdmin, projectController.adminListPendingSteps);
 router.get('/assignments/:id/steps', requireAdmin, projectController.adminGetAssignmentSteps);
 router.post(
   '/assignments/:id/steps/:stepId/validate',
-  requireAdmin,
+  canWrite,
   projectController.adminValidateStep
 );
 router.post(
   '/assignments/:id/steps/:stepId/reject',
-  requireAdmin,
+  canWrite,
   projectController.adminRejectStep
 );
 

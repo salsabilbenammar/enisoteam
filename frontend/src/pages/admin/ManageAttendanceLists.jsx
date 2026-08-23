@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import { downloadAttendancePdf } from '../../utils/attendancePdf';
 import { defaultDateMin } from '../../utils/dateLimits';
 import styles from './ManageDeplacements.module.css';
@@ -23,6 +25,8 @@ const empty = {
 };
 
 export default function ManageAttendanceLists() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('attendance');
   const confirm = useConfirm();
   const [form, setForm] = useState(() => ({
     ...empty,
@@ -229,9 +233,12 @@ export default function ManageAttendanceLists() {
         </p>
       </header>
 
+      <ReadOnlyBanner module="attendance" />
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
       <form className={styles.composer} onSubmit={onCreate}>
         <div className={styles.composerHead}>
           <div>
@@ -523,6 +530,7 @@ export default function ManageAttendanceLists() {
           </div>
         )}
       </section>
+      </fieldset>
     </div>
   );
 }

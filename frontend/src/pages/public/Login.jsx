@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { isBureauRole } from '../../utils/bureauPermissions';
 import styles from './Login.module.css';
 
 function safePublicRedirect(from) {
@@ -43,9 +44,9 @@ export default function Login() {
     setSubmitting(true);
     try {
       const data = await login(email.trim(), password);
-      if (data.user.role === 'admin') {
+      if (isBureauRole(data.user.role)) {
         logout();
-        setError('Compte administrateur détecté. Utilisez la page de connexion admin.');
+        setError('Compte bureau détecté. Utilisez la page de connexion admin.');
         return;
       }
       if (data.user.role !== 'member') {

@@ -2,6 +2,12 @@ const eventModel = require('../models/eventModel');
 const regModel = require('../models/activityRegistrationModel');
 const { sendMail } = require('../services/emailService');
 const { buildSelectionEmail } = require('../services/eventMailTemplates');
+const {
+  canViewMembersContent,
+  filterByAudience,
+  normalizeAudience,
+  isClubMember,
+} = require('../middlewares/authMiddleware');
 
 const statuts = new Set(['a_venir', 'passe']);
 const formTypes = new Set(['personne', 'groupe', 'les_deux', 'individuel', 'avec_accompagnants']);
@@ -190,9 +196,10 @@ function validateRegistration(body, event) {
   };
 }
 
-async function getAll(_req, res, next) {
+async function getAll(req, res, next) {
   try {
-    res.json(await eventModel.getAll());
+    const rows = await eventModel.getAll();
+    res.json(filterByAudience(rows, req.user));
   } catch (err) {
     next(err);
   }
@@ -202,6 +209,11 @@ async function getById(req, res, next) {
   try {
     const row = await eventModel.getById(req.params.id);
     if (!row) return res.status(404).json({ message: 'Événement introuvable.' });
+    if (row.audience === 'membres' && !canViewMembersContent(req.user)) {
+      return res.status(403).json({
+        message: 'Cet événement est réservé aux membres connectés.',
+      });
+    }
     res.json(row);
   } catch (err) {
     next(err);
@@ -210,7 +222,8 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { titre, description, date, lieu, statut, inscription_ouverte, payant, prix } = req.body;
+    const { titre, description, date, lieu, statut, inscription_ouverte, payant, prix, audience } =
+      req.body;
     if (!titre || !description || !date) {
       return res.status(400).json({ message: 'Titre, description et date requis.' });
     }
@@ -238,6 +251,7 @@ async function create(req, res, next) {
       inscription_ouverte: parseOpen(inscription_ouverte),
       payant: isPayant,
       prix,
+      audience: normalizeAudience(audience),
       ...form,
     });
     res.status(201).json(row);
@@ -248,7 +262,17 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    const { titre, description, date, lieu, statut, inscription_ouverte, payant, prix } = req.body;
+    const {
+      titre,
+      description,
+      date,
+      lieu,
+      statut,
+      inscription_ouverte,
+      payant,
+      prix,
+      audience,
+    } = req.body;
     if (!titre || !description || !date) {
       return res.status(400).json({ message: 'Titre, description et date requis.' });
     }
@@ -274,6 +298,7 @@ async function update(req, res, next) {
       inscription_ouverte: parseOpen(inscription_ouverte),
       payant: isPayant,
       prix,
+      audience: normalizeAudience(audience),
       ...form,
     };
     if (req.file) data.image = `/uploads/events/${req.file.filename}`;
@@ -301,6 +326,11 @@ async function register(req, res, next) {
   try {
     const event = await eventModel.getById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Event not found.' });
+    if (event.audience === 'membres' && !isClubMember(req.user)) {
+      return res.status(403).json({
+        message: 'Cet événement est réservé aux membres. Connectez-vous pour vous inscrire.',
+      });
+    }
     if (!event.inscription_ouverte) {
       return res.status(403).json({ message: 'Registration is closed for this event.' });
     }

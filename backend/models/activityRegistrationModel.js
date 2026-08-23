@@ -97,6 +97,7 @@ function normalizeEvent(row) {
   const payant = Number(row.payant) === 1 || row.payant === true;
   return {
     ...row,
+    audience: row.audience === 'membres' ? 'membres' : 'public',
     inscription_ouverte: open,
     payant,
     prix: row.prix || null,

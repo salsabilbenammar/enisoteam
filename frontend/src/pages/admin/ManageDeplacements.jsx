@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import { defaultDateMin, minSelectableDate } from '../../utils/dateLimits';
 import styles from './ManageDeplacements.module.css';
 
@@ -82,6 +84,8 @@ function getTeamMemberNames(registration) {
 }
 
 export default function ManageDeplacements() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('deplacements');
   const confirm = useConfirm();
   const regsRef = useRef(null);
   const [items, setItems] = useState([]);
@@ -463,6 +467,9 @@ export default function ManageDeplacements() {
           inscriptions et suivez les candidats spectateurs ou compétiteurs.
         </p>
       </header>
+
+      <ReadOnlyBanner module="deplacements" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
@@ -1085,6 +1092,7 @@ export default function ManageDeplacements() {
           )}
         </section>
       )}
+    </fieldset>
     </div>
   );
 }

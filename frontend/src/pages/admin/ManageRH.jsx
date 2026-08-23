@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import styles from './ManageRH.module.css';
 
 const FORM_TABS = [
@@ -70,6 +72,8 @@ const DEFAULT_REGLEMENT_INTERNE = `3.2 — Droits et devoirs, comportement des m
 • Le non-respect de la propreté et l'organisation de l'espace du travail et du local expose l'adhérant à des avertissements et des sanctions pouvant aller jusqu'à la révocation.`;
 
 export default function ManageRH() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('rh');
   const confirm = useConfirm();
   const [tab, setTab] = useState('merits');
   const [loading, setLoading] = useState(true);
@@ -259,6 +263,8 @@ export default function ManageRH() {
         <p>Mérites automatiques, règlement interne et formulaires des membres.</p>
       </header>
 
+      <ReadOnlyBanner module="rh" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
       <div className={styles.tabs}>
         <button
           type="button"
@@ -547,6 +553,7 @@ export default function ManageRH() {
           )}
         </>
       )}
+      </fieldset>
     </div>
   );
 }

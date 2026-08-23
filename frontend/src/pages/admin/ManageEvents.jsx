@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import GoogleFormBuilder, { createBlankQuestion } from '../../components/admin/GoogleFormBuilder';
 import { toApiFields } from '../../data/formQuestionBank';
 import { defaultDateTimeMin, minSelectableDateTime } from '../../utils/dateLimits';
@@ -17,6 +19,7 @@ const empty = {
   image_url: '',
   payant: false,
   prix: '',
+  audience: 'public',
   formulaire_type: 'les_deux',
   accompagnants_min: 1,
   accompagnants_max: 3,
@@ -280,6 +283,8 @@ function buildRegsMeta(event) {
 }
 
 export default function ManageEvents() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('events');
   const confirm = useConfirm();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -358,6 +363,7 @@ export default function ManageEvents() {
       image_url: item.image || '',
       payant: !!item.payant,
       prix: item.prix || '',
+      audience: item.audience === 'membres' ? 'membres' : 'public',
       formulaire_type: fromApiFormType(item.formulaire_type),
       accompagnants_min: item.accompagnants_min ?? 1,
       accompagnants_max: item.accompagnants_max ?? 3,
@@ -378,6 +384,7 @@ export default function ManageEvents() {
     data.append('lieu', form.lieu);
     data.append('payant', form.payant ? '1' : '0');
     data.append('prix', form.prix || '');
+    data.append('audience', form.audience === 'membres' ? 'membres' : 'public');
     data.append(
       'statut',
       form.date && new Date(form.date).getTime() < Date.now() ? 'passe' : 'a_venir'
@@ -868,6 +875,9 @@ export default function ManageEvents() {
         </p>
       </header>
 
+      <ReadOnlyBanner module="events" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
@@ -1012,6 +1022,32 @@ export default function ManageEvents() {
             />
           </div>
         )}
+
+        <div className={styles.gformCard}>
+          <p className={styles.gformQuestion}>
+            Visible pour <span>*</span>
+          </p>
+          <div className={styles.gformChoices}>
+            <label className={styles.gformChoice}>
+              <input
+                type="radio"
+                name="evt-visibilite"
+                checked={form.audience === 'public'}
+                onChange={() => setForm({ ...form, audience: 'public' })}
+              />
+              Tout le monde
+            </label>
+            <label className={styles.gformChoice}>
+              <input
+                type="radio"
+                name="evt-visibilite"
+                checked={form.audience === 'membres'}
+                onChange={() => setForm({ ...form, audience: 'membres' })}
+              />
+              Membres uniquement
+            </label>
+          </div>
+        </div>
 
         <div className={styles.gformCard}>
           <p className={styles.gformQuestion}>
@@ -1189,6 +1225,9 @@ export default function ManageEvents() {
                   <div>
                     <div className={styles.tripMeta}>
                       <span className={styles.chip}>{formTypeLabel(item.formulaire_type)}</span>
+                      <span className={styles.chip}>
+                        {item.audience === 'membres' ? 'Membres' : 'Public'}
+                      </span>
                       {item.lieu && (
                         <span className={`${styles.chip} ${styles.chipMuted}`}>{item.lieu}</span>
                       )}
@@ -1723,6 +1762,7 @@ export default function ManageEvents() {
           )}
         </section>
       )}
+    </fieldset>
     </div>
   );
 }

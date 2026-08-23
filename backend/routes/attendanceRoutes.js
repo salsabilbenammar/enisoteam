@@ -1,18 +1,19 @@
-const express = require('express');
+﻿const express = require('express');
 const attendanceController = require('../controllers/attendanceController');
-const { requireAdmin } = require('../middlewares/authMiddleware');
+const { requireAdmin, requireModuleWrite } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
+const canWrite = requireModuleWrite('attendance');
 
 router.get('/public/:token', attendanceController.getPublicSession);
 router.post('/public/:token/entries', attendanceController.addEntryPublic);
 
 router.get('/', requireAdmin, attendanceController.getAll);
 router.get('/:id', requireAdmin, attendanceController.getById);
-router.post('/', requireAdmin, attendanceController.create);
-router.put('/:id', requireAdmin, attendanceController.update);
-router.delete('/:id', requireAdmin, attendanceController.remove);
-router.post('/:id/entries', requireAdmin, attendanceController.addEntryAdmin);
-router.delete('/:id/entries/:entryId', requireAdmin, attendanceController.removeEntry);
+router.post('/', canWrite, attendanceController.create);
+router.put('/:id', canWrite, attendanceController.update);
+router.delete('/:id', canWrite, attendanceController.remove);
+router.post('/:id/entries', canWrite, attendanceController.addEntryAdmin);
+router.delete('/:id/entries/:entryId', canWrite, attendanceController.removeEntry);
 
 module.exports = router;

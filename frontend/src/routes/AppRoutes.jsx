@@ -17,6 +17,7 @@ import ActivityInscription from '../pages/public/ActivityInscription';
 import Login from '../pages/public/Login';
 import MemberProfile from '../pages/public/MemberProfile';
 import Projects from '../pages/public/Projects';
+import Prospection from '../pages/public/Prospection';
 import ProjectSelection from '../pages/public/ProjectSelection';
 import MyProjects from '../pages/public/MyProjects';
 
@@ -32,6 +33,7 @@ import ManageRecruitment from '../pages/admin/ManageRecruitment';
 import ManageFinance from '../pages/admin/ManageFinance';
 import ManageDeplacements from '../pages/admin/ManageDeplacements';
 import ManageProjects from '../pages/admin/ManageProjects';
+import ManageProspection from '../pages/admin/ManageProspection';
 import ManagePvReunions from '../pages/admin/ManagePvReunions';
 import ManageAttendanceLists from '../pages/admin/ManageAttendanceLists';
 import ManageLogistique from '../pages/admin/ManageLogistique';
@@ -53,15 +55,16 @@ export default function AppRoutes() {
         <Route path="trainings" element={<Trainings />} />
         <Route path="events" element={<Events />} />
         <Route path="events/:id/inscription" element={<ActivityInscription type="events" />} />
-        <Route path="announcements" element={<Announcements />} />
         <Route path="deplacements" element={<Deplacements />} />
         <Route path="projets" element={<Projects />} />
+        <Route path="prospection" element={<Prospection />} />
         <Route path="candidature" element={<Candidature />} />
         <Route path="candidature-media" element={<Candidature stream="media_babies" />} />
         <Route path="recrutement/reservation/:token" element={<BookInterview />} />
         <Route path="login" element={<Login />} />
 
         <Route element={<MemberRoute />}>
+          <Route path="announcements" element={<Announcements />} />
           <Route path="rh" element={<Recruitment />} />
           <Route path="profil" element={<MemberProfile />} />
           <Route path="selection-projets" element={<ProjectSelection />} />
@@ -89,6 +92,7 @@ export default function AppRoutes() {
           <Route path="finance" element={<ManageFinance />} />
           <Route path="deplacements" element={<ManageDeplacements />} />
           <Route path="projects" element={<ManageProjects />} />
+          <Route path="prospection" element={<ManageProspection />} />
           <Route path="logistique" element={<ManageLogistique />} />
           <Route path="pv-reunions" element={<ManagePvReunions />} />
           <Route path="listes-presence" element={<ManageAttendanceLists />} />

@@ -55,12 +55,13 @@ async function create(data) {
   const form = serializeFormConfig(data);
   const payant = data.payant ? 1 : 0;
   const prix = payant && data.prix ? String(data.prix).trim() : null;
+  const audience = data.audience === 'membres' ? 'membres' : 'public';
   try {
     const [result] = await pool.execute(
       `INSERT INTO events
         (titre, description, date, lieu, image, statut, inscription_ouverte, payant, prix,
-         formulaire_type, accompagnants_min, accompagnants_max, champs_personnalises)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         formulaire_type, accompagnants_min, accompagnants_max, champs_personnalises, audience)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.titre,
         data.description,
@@ -75,6 +76,7 @@ async function create(data) {
         form.accompagnants_min,
         form.accompagnants_max,
         form.champs_personnalises,
+        audience,
       ]
     );
     return getById(result.insertId);
@@ -83,9 +85,9 @@ async function create(data) {
     try {
       const [result] = await pool.execute(
         `INSERT INTO events
-          (titre, description, date, lieu, image, statut, inscription_ouverte,
+          (titre, description, date, lieu, image, statut, inscription_ouverte, payant, prix,
            formulaire_type, accompagnants_min, accompagnants_max, champs_personnalises)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           data.titre,
           data.description,
@@ -94,6 +96,8 @@ async function create(data) {
           data.image || null,
           data.statut || 'a_venir',
           data.inscription_ouverte ? 1 : 0,
+          payant,
+          prix,
           form.formulaire_type,
           form.accompagnants_min,
           form.accompagnants_max,
@@ -103,19 +107,43 @@ async function create(data) {
       return getById(result.insertId);
     } catch (err2) {
       if (err2.code !== 'ER_BAD_FIELD_ERROR') throw err2;
-      const [result] = await pool.execute(
-        `INSERT INTO events (titre, description, date, lieu, image, statut)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          data.titre,
-          data.description,
-          data.date,
-          data.lieu || null,
-          data.image || null,
-          data.statut || 'a_venir',
-        ]
-      );
-      return getById(result.insertId);
+      try {
+        const [result] = await pool.execute(
+          `INSERT INTO events
+            (titre, description, date, lieu, image, statut, inscription_ouverte,
+             formulaire_type, accompagnants_min, accompagnants_max, champs_personnalises)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            data.titre,
+            data.description,
+            data.date,
+            data.lieu || null,
+            data.image || null,
+            data.statut || 'a_venir',
+            data.inscription_ouverte ? 1 : 0,
+            form.formulaire_type,
+            form.accompagnants_min,
+            form.accompagnants_max,
+            form.champs_personnalises,
+          ]
+        );
+        return getById(result.insertId);
+      } catch (err3) {
+        if (err3.code !== 'ER_BAD_FIELD_ERROR') throw err3;
+        const [result] = await pool.execute(
+          `INSERT INTO events (titre, description, date, lieu, image, statut)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            data.titre,
+            data.description,
+            data.date,
+            data.lieu || null,
+            data.image || null,
+            data.statut || 'a_venir',
+          ]
+        );
+        return getById(result.insertId);
+      }
     }
   }
 }
@@ -152,6 +180,14 @@ async function update(id, data) {
     data.payant !== undefined ? (data.payant ? 1 : 0) : existing.payant ? 1 : 0;
   const prixRaw = data.prix !== undefined ? data.prix : existing.prix;
   const prix = payant && prixRaw ? String(prixRaw).trim() : null;
+  const audience =
+    data.audience !== undefined
+      ? data.audience === 'membres'
+        ? 'membres'
+        : 'public'
+      : existing.audience === 'membres'
+        ? 'membres'
+        : 'public';
 
   try {
     await pool.execute(
@@ -159,7 +195,7 @@ async function update(id, data) {
        SET titre = ?, description = ?, date = ?, lieu = ?, image = ?, statut = ?,
            inscription_ouverte = ?, payant = ?, prix = ?,
            formulaire_type = ?, accompagnants_min = ?,
-           accompagnants_max = ?, champs_personnalises = ?
+           accompagnants_max = ?, champs_personnalises = ?, audience = ?
        WHERE id = ?`,
       [
         data.titre,
@@ -175,6 +211,7 @@ async function update(id, data) {
         form.accompagnants_min,
         form.accompagnants_max,
         form.champs_personnalises,
+        audience,
         id,
       ]
     );
@@ -184,7 +221,8 @@ async function update(id, data) {
       await pool.execute(
         `UPDATE events
          SET titre = ?, description = ?, date = ?, lieu = ?, image = ?, statut = ?,
-             inscription_ouverte = ?, formulaire_type = ?, accompagnants_min = ?,
+             inscription_ouverte = ?, payant = ?, prix = ?,
+             formulaire_type = ?, accompagnants_min = ?,
              accompagnants_max = ?, champs_personnalises = ?
          WHERE id = ?`,
         [
@@ -195,6 +233,8 @@ async function update(id, data) {
           image,
           data.statut || 'a_venir',
           open,
+          payant,
+          prix,
           form.formulaire_type,
           form.accompagnants_min,
           form.accompagnants_max,
@@ -204,20 +244,45 @@ async function update(id, data) {
       );
     } catch (err2) {
       if (err2.code !== 'ER_BAD_FIELD_ERROR') throw err2;
-      await pool.execute(
-        `UPDATE events
-         SET titre = ?, description = ?, date = ?, lieu = ?, image = ?, statut = ?
-         WHERE id = ?`,
-        [
-          data.titre,
-          data.description,
-          data.date,
-          data.lieu || null,
-          image,
-          data.statut || 'a_venir',
-          id,
-        ]
-      );
+      try {
+        await pool.execute(
+          `UPDATE events
+           SET titre = ?, description = ?, date = ?, lieu = ?, image = ?, statut = ?,
+               inscription_ouverte = ?, formulaire_type = ?, accompagnants_min = ?,
+               accompagnants_max = ?, champs_personnalises = ?
+           WHERE id = ?`,
+          [
+            data.titre,
+            data.description,
+            data.date,
+            data.lieu || null,
+            image,
+            data.statut || 'a_venir',
+            open,
+            form.formulaire_type,
+            form.accompagnants_min,
+            form.accompagnants_max,
+            form.champs_personnalises,
+            id,
+          ]
+        );
+      } catch (err3) {
+        if (err3.code !== 'ER_BAD_FIELD_ERROR') throw err3;
+        await pool.execute(
+          `UPDATE events
+           SET titre = ?, description = ?, date = ?, lieu = ?, image = ?, statut = ?
+           WHERE id = ?`,
+          [
+            data.titre,
+            data.description,
+            data.date,
+            data.lieu || null,
+            image,
+            data.statut || 'a_venir',
+            id,
+          ]
+        );
+      }
     }
   }
   return getById(id);

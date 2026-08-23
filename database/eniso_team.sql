@@ -42,10 +42,10 @@ CREATE TABLE `admins` (
   `nom`           VARCHAR(100)      NOT NULL,
   `email`         VARCHAR(150)      NOT NULL,
   `password_hash` VARCHAR(255)      NOT NULL,
-  `role`          ENUM('admin', 'secretaire') NOT NULL DEFAULT 'admin',
+  `role`          ENUM('admin', 'secretaire', 'rh', 'projets', 'tresorier', 'logistique', 'evenementiel', 'media', 'prospection') NOT NULL DEFAULT 'admin',
   `created_at`    TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_admins_email` (`email`)
+  PRIMARY KEY (`id`)
+  /* email non unique : même adresse, mots de passe différents par poste */
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -140,6 +140,7 @@ CREATE TABLE `trainings` (
   `formateur`            VARCHAR(100)                              DEFAULT NULL,
   `niveau`               ENUM('debutant', 'intermediaire', 'avance') NOT NULL DEFAULT 'debutant',
   `lien`                 VARCHAR(500)                              DEFAULT NULL,
+  `image`                VARCHAR(255)                              DEFAULT NULL,
   `inscription_ouverte`  TINYINT(1)                                NOT NULL DEFAULT 0,
   `payante`              TINYINT(1)                                NOT NULL DEFAULT 0,
   `prix`                 VARCHAR(50)                               DEFAULT NULL,

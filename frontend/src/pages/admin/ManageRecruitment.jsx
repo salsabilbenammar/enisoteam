@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import MailTemplateEditor from '../../components/admin/MailTemplateEditor';
 import { defaultDateMin } from '../../utils/dateLimits';
 import styles from './ManageRecruitment.module.css';
@@ -90,6 +92,8 @@ function toDateKey(value) {
 const emptySlot = { date_slot: '', heure_slot: '', max_places: 10, lieu: '' };
 
 export default function ManageRecruitment() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('recruitment');
   const confirm = useConfirm();
   const [stream, setStream] = useState('general');
   const isMedia = stream === 'media_babies';
@@ -610,6 +614,8 @@ export default function ManageRecruitment() {
         ) : null}
       </header>
 
+      <ReadOnlyBanner module="recruitment" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
       <div className={styles.streamSwitch}>
         <button
           type="button"
@@ -1581,6 +1587,7 @@ export default function ManageRecruitment() {
           </div>
         </div>
       )}
+      </fieldset>
     </div>
   );
 }

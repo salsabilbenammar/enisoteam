@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../../services/api';
+import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useAuth } from '../../context/AuthContext';
 import styles from './ActivityCards.module.css';
@@ -40,6 +40,9 @@ export default function Trainings() {
         <div className="grid grid-2">
           {items.map((t) => (
             <article key={t.id} className={`card ${styles.card}`}>
+              {t.image ? (
+                <img src={assetUrl(t.image)} alt="" className={styles.cover} />
+              ) : null}
               <div className="meta">
                 <span className="badge badge-accent">{niveauLabel[t.niveau] || t.niveau}</span>
                 <span>{new Date(t.date).toLocaleDateString('fr-FR')}</span>

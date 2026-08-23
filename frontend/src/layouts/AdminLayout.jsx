@@ -15,6 +15,7 @@ const links = [
   { to: '/admin/finance', label: 'Finance' },
   { to: '/admin/deplacements', label: 'Car & compétitions' },
   { to: '/admin/projects', label: 'Projets' },
+  { to: '/admin/prospection', label: 'Prospection' },
   { to: '/admin/logistique', label: 'Logistique' },
   { to: '/admin/pv-reunions', label: 'PV des réunions' },
   { to: '/admin/listes-presence', label: 'Listes de présence' },
@@ -24,7 +25,7 @@ const links = [
 ];
 
 export default function AdminLayout() {
-  const { admin, logout } = useAuth();
+  const { admin, logout, roleLabel } = useAuth();
   const navigate = useNavigate();
   const [hasMyProject, setHasMyProject] = useState(false);
 
@@ -69,6 +70,9 @@ export default function AdminLayout() {
         </nav>
         <div className={styles.user}>
           <p>{admin?.nom}</p>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {roleLabel || 'Bureau'}
+          </span>
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleLogout}>
             Déconnexion
           </button>

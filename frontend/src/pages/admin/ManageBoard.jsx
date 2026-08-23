@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { BOARD_ROLES, mergeBoardMembers } from '../../data/boardRoles';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import styles from './ManageBoard.module.css';
 
 function getPhotoPreview(photoConfig) {
@@ -23,6 +25,8 @@ const emptyForm = () => ({
 });
 
 export default function ManageBoard() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('board');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm());
@@ -151,9 +155,12 @@ export default function ManageBoard() {
         <p>Modifiez le titre de la page Bureau et les postes (nom, photo, téléphone, Facebook).</p>
       </header>
 
+      <ReadOnlyBanner module="board" />
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
       <form className={`card form ${styles.form}`} onSubmit={saveTitle} style={{ marginBottom: '1.5rem' }}>
         <h3>Titre de la page Bureau</h3>
         <div className="form-group">
@@ -281,6 +288,7 @@ export default function ManageBoard() {
           </article>
         ))}
       </div>
+      </fieldset>
     </div>
   );
 }

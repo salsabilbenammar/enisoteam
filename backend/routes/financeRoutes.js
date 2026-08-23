@@ -1,6 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const financeController = require('../controllers/financeController');
-const { requireAdmin, requireMember } = require('../middlewares/authMiddleware');
+const { requireAdmin, requireModuleWrite, requireMember } = require('../middlewares/authMiddleware');
 const { uploadFinanceJustificatif, uploadImage } = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
@@ -11,6 +11,10 @@ router.get('/merchandise/:variant', requireMember, financeController.getMerchFor
 router.post('/merchandise/:variant/orders', requireMember, financeController.submitMerchOrder);
 
 router.use(requireAdmin);
+router.use((req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  return requireModuleWrite('finance')(req, res, next);
+});
 
 router.get('/settings', financeController.getSettings);
 router.put('/settings', financeController.updateSettings);

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import {
   DEFAULT_AXES,
   isAxesSection,
@@ -12,6 +14,8 @@ import {
 const empty = { titre: '', contenu: '', image: null, existingMedia: null };
 
 export default function ManageClubInfo() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('club_info');
   const confirm = useConfirm();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,6 +139,9 @@ export default function ManageClubInfo() {
         <h1>Contenu « À propos »</h1>
         <p>Modifiez Histoire, Mission et Nos Axes affichés sur le site public.</p>
       </header>
+
+      <ReadOnlyBanner module="club_info" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
@@ -283,6 +290,7 @@ export default function ManageClubInfo() {
             </article>
           ))}
       </div>
+      </fieldset>
     </div>
   );
 }

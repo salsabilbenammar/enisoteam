@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import api from '../../services/api';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import GoogleFormBuilder, { createBlankQuestion } from '../../components/admin/GoogleFormBuilder';
 import { toApiFields } from '../../data/formQuestionBank';
 import { defaultDateMin, minSelectableDate } from '../../utils/dateLimits';
@@ -14,6 +16,8 @@ const empty = {
   formateur: '',
   niveau: 'debutant',
   lien: '',
+  image: null,
+  image_url: '',
   payante: false,
   prix: '',
   fifo_paiement: false,
@@ -103,6 +107,8 @@ function formatAnswers(answers, fields) {
 }
 
 export default function ManageTrainings() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('trainings');
   const confirm = useConfirm();
   const regsRef = useRef(null);
   const [items, setItems] = useState([]);
@@ -155,6 +161,8 @@ export default function ManageTrainings() {
       formateur: item.formateur || '',
       niveau: item.niveau || 'debutant',
       lien: item.lien || '',
+      image: null,
+      image_url: item.image || '',
       payante: !!item.payante,
       prix: item.prix || '',
       fifo_paiement: !!item.fifo_paiement,
@@ -175,12 +183,24 @@ export default function ManageTrainings() {
     setError('');
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        champs_personnalises: toApiFields(form.champs_personnalises),
-      };
-      if (editId) await api.put(`/trainings/${editId}`, payload);
-      else await api.post('/trainings', payload);
+      const data = new FormData();
+      data.append('titre', form.titre);
+      data.append('description', form.description);
+      data.append('date', form.date);
+      data.append('formateur', form.formateur || '');
+      data.append('niveau', form.niveau || 'debutant');
+      data.append('lien', form.lien || '');
+      data.append('payante', form.payante ? '1' : '0');
+      data.append('prix', form.prix || '');
+      data.append('fifo_paiement', form.fifo_paiement ? '1' : '0');
+      data.append(
+        'champs_personnalises',
+        JSON.stringify(toApiFields(form.champs_personnalises))
+      );
+      if (form.image) data.append('image', form.image);
+
+      if (editId) await api.put(`/trainings/${editId}`, data);
+      else await api.post('/trainings', data);
       reset();
       await load();
     } catch (err) {
@@ -422,9 +442,12 @@ export default function ManageTrainings() {
         <p>Créez des formulaires d&apos;inscription au style Google Forms.</p>
       </header>
 
+      <ReadOnlyBanner module="trainings" />
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
       <div className={styles.stats}>
         <div className={styles.stat}>
           <span>Formations</span>
@@ -477,6 +500,29 @@ export default function ManageTrainings() {
             placeholder="Réponse longue"
             rows={4}
           />
+        </div>
+
+        <div className={styles.gformCard}>
+          <label htmlFor="trn-affiche">Affiche de la formation</label>
+          {(form.image || form.image_url) && (
+            <img
+              src={form.image ? URL.createObjectURL(form.image) : assetUrl(form.image_url)}
+              alt="Aperçu affiche"
+              className={styles.affichePreview}
+            />
+          )}
+          <input
+            id="trn-affiche"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={(e) =>
+              setForm({
+                ...form,
+                image: e.target.files?.[0] || null,
+              })
+            }
+          />
+          <p className={styles.afficheHint}>JPG, PNG, WebP ou GIF — affichée sur la page Formations.</p>
         </div>
 
         <div className={styles.gformCard}>
@@ -652,6 +698,14 @@ export default function ManageTrainings() {
           <div className={styles.tripGrid}>
             {items.map((item) => (
               <article key={item.id} className={styles.tripCard}>
+                {item.image ? (
+                  <img
+                    src={assetUrl(item.image)}
+                    alt=""
+                    className={styles.affichePreview}
+                    style={{ maxHeight: 160, marginBottom: '0.75rem' }}
+                  />
+                ) : null}
                 <div className={styles.tripTop}>
                   <div>
                     <div className={styles.tripMeta}>
@@ -997,6 +1051,7 @@ export default function ManageTrainings() {
           )}
         </div>
       )}
+      </fieldset>
     </div>
   );
 }

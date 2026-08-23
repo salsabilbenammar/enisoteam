@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api, { assetUrl, openStepDocument } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import styles from './ManageProjects.module.css';
 import {
   archiveEndYearFromDate,
@@ -88,6 +90,8 @@ const PROJECT_TABS = new Set([
 ]);
 
 export default function ManageProjects() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('projects');
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -301,6 +305,7 @@ export default function ManageProjects() {
           </span>
           {g.assigned && <span className={`${styles.badge} ${styles.badgeOk}`}>Attribué</span>}
         </header>
+
         <div className={styles.memberList}>
           {(g.participants || []).map((p) => (
             <div key={p.id || `${p.email}-${p.prenom}`} className={styles.memberItem}>
@@ -688,6 +693,9 @@ export default function ManageProjects() {
           Catalogue, réalisations, étapes, formulaire de sélection, soumissions et attributions.
         </p>
       </header>
+
+      <ReadOnlyBanner module="projects" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
@@ -1390,6 +1398,7 @@ export default function ManageProjects() {
           </div>
         </div>
       )}
+      </fieldset>
     </div>
   );
 }

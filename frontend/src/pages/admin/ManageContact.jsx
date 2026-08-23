@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import Loader from '../../components/common/Loader';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 
 const empty = {
   contact_label: '',
@@ -11,6 +13,8 @@ const empty = {
 };
 
 export default function ManageContact() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('contact');
   const [form, setForm] = useState(empty);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +71,9 @@ export default function ManageContact() {
         <h1>Contact & réseaux</h1>
         <p>Modifiez le numéro affiché dans le footer et les liens Instagram, Facebook et LinkedIn.</p>
       </header>
+
+      <ReadOnlyBanner module="contact" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
@@ -135,6 +142,7 @@ export default function ManageContact() {
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
+      </fieldset>
     </div>
   );
 }

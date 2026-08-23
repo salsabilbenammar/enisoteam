@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import styles from './ManageGallery.module.css';
 
 const empty = { titre: '', description: '', ordre_affichage: 0, image: null };
 
 export default function ManageGallery() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('gallery');
   const confirm = useConfirm();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +127,9 @@ export default function ManageGallery() {
         </p>
       </header>
 
+      <ReadOnlyBanner module="gallery" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
@@ -209,6 +216,7 @@ export default function ManageGallery() {
         ))}
       </div>
       {items.length === 0 && <div className="empty">Aucun média dans le slider.</div>}
+    </fieldset>
     </div>
   );
 }

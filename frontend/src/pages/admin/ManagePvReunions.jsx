@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 
 const empty = {
   titre: '',
@@ -13,6 +15,8 @@ const empty = {
 };
 
 export default function ManagePvReunions() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('pv_reunions');
   const confirm = useConfirm();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +108,9 @@ export default function ManagePvReunions() {
           <Link to="/admin/listes-presence">Saisie de présence sur place</Link>
         </p>
       </header>
+
+      <ReadOnlyBanner module="pv_reunions" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
 
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
@@ -256,6 +263,7 @@ export default function ManagePvReunions() {
           </div>
         )}
       </div>
+    </fieldset>
     </div>
   );
 }

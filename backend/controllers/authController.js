@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const adminModel = require('../models/adminModel');
 const memberModel = require('../models/memberModel');
+const { normalizeBureauRole, isBureauRole } = require('../middlewares/authMiddleware');
 
 /** Session longue : une connexion suffit pour rester reconnu longtemps. */
 function signToken(payload) {
@@ -28,20 +29,22 @@ async function login(req, res, next) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    const admin = await adminModel.findByEmail(normalizedEmail);
-    if (admin) {
+    const admins = await adminModel.findAllByEmail(normalizedEmail);
+    for (const admin of admins) {
       const valid = await bcrypt.compare(password, admin.password_hash);
-      if (!valid) {
-        return res.status(401).json({ message: 'Identifiants incorrects.' });
-      }
+      if (!valid) continue;
       const user = {
         id: admin.id,
         nom: admin.nom,
         email: admin.email,
-        role: admin.role === 'secretaire' ? 'secretaire' : 'admin',
+        role: normalizeBureauRole(admin.role),
       };
       const token = signToken(tokenPayload(user));
       return res.json({ token, user, admin: user });
+    }
+
+    if (admins.length) {
+      return res.status(401).json({ message: 'Identifiants incorrects.' });
     }
 
     const member = await memberModel.findByEmail(normalizedEmail);
@@ -78,14 +81,14 @@ async function me(req, res, next) {
 
     let user;
 
-    if (req.user.role === 'admin' || req.user.role === 'secretaire') {
+    if (isBureauRole(req.user.role)) {
       const admin = await adminModel.findById(req.user.id);
       if (!admin) return res.status(404).json({ message: 'Compte bureau introuvable.' });
       user = {
         id: admin.id,
         nom: admin.nom,
         email: admin.email,
-        role: admin.role === 'secretaire' ? 'secretaire' : 'admin',
+        role: normalizeBureauRole(admin.role),
       };
     } else if (req.user.role === 'member') {
       const member = await memberModel.findById(req.user.id);

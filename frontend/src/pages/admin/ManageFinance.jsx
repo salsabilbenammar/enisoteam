@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import api, { assetUrl } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
+import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
+import { useAuth } from '../../context/AuthContext';
 import MailTemplateEditor from '../../components/admin/MailTemplateEditor';
 import { localToday } from '../../utils/dateLimits';
 import styles from './ManageFinance.module.css';
@@ -81,6 +83,8 @@ function money(n, devise = 'DT') {
 }
 
 export default function ManageFinance() {
+  const { canEdit } = useAuth();
+  const canEditPage = canEdit('finance');
   const confirm = useConfirm();
   const [tab, setTab] = useState('cotisations');
   const [loading, setLoading] = useState(true);
@@ -386,6 +390,7 @@ export default function ManageFinance() {
                 {f.ouvert ? 'Ouvert' : 'Fermé'}
               </span>
             </header>
+
             <p className={styles.meta}>{f.description}</p>
             <div className={styles.merchPreviewRow}>
               <img
@@ -861,6 +866,9 @@ export default function ManageFinance() {
         <p>Cotisations et paiements · boutique pull · mail de confirmation.</p>
       </header>
 
+      <ReadOnlyBanner module="finance" />
+      <fieldset disabled={!canEditPage} style={{ border: 0, padding: 0, margin: 0, minInlineSize: 0 }}>
+
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
@@ -1322,6 +1330,8 @@ export default function ManageFinance() {
           </div>
         </div>
       )}
+
+    </fieldset>
 
     </div>
   );

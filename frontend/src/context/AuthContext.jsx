@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import api from '../services/api';
+import { canWriteModule, isBureauRole, roleLabel } from '../utils/bureauPermissions';
 
 const AuthContext = createContext(null);
 
@@ -103,10 +104,13 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = !!user;
-  const isAdmin = user?.role === 'admin' || user?.role === 'secretaire';
-  /** Accès fonctionnalités membres (inscriptions formations, Coin RH, contenus réservés). */
-  const isMember =
-    user?.role === 'member' || user?.role === 'admin' || user?.role === 'secretaire';
+  const isAdmin = isBureauRole(user?.role);
+  const canEdit = (module) => canWriteModule(user?.role, module);
+  /** @deprecated préférer canEdit('rh') */
+  const canEditRh = canEdit('rh');
+  /** @deprecated préférer canEdit(...) */
+  const canEditGeneral = user?.role === 'admin' || user?.role === 'secretaire';
+  const isMember = user?.role === 'member' || isAdmin;
   const isClubMemberOnly = user?.role === 'member';
 
   return (
@@ -120,8 +124,12 @@ export function AuthProvider({ children }) {
         refreshProfile,
         isAuthenticated,
         isAdmin,
+        canEdit,
+        canEditRh,
+        canEditGeneral,
         isMember,
         isClubMemberOnly,
+        roleLabel: roleLabel(user?.role),
       }}
     >
       {children}

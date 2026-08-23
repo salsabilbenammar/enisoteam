@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { isBureauRole } from '../../utils/bureauPermissions';
 import styles from '../public/Login.module.css';
 
 export default function AdminLogin() {
@@ -43,7 +44,7 @@ export default function AdminLogin() {
     setSubmitting(true);
     try {
       const data = await login(email.trim(), password);
-      if (data.user.role !== 'admin') {
+      if (!isBureauRole(data.user.role)) {
         logout();
         setError('Compte membre détecté. Utilisez la page de connexion membre.');
         return;
@@ -68,7 +69,7 @@ export default function AdminLogin() {
         <div className={styles.header}>
           <img src="/logo.png" alt="ENISO Team" className={styles.logo} />
           <h1>Administration</h1>
-          <p>Connexion réservée aux administrateurs du club.</p>
+          <p>Même email pour tout le bureau — le mot de passe identifie votre poste.</p>
         </div>
         <div className="card">
           {error && <div className="alert alert-error">{error}</div>}

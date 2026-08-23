@@ -76,6 +76,7 @@ app.use('/api/deplacements', require('./routes/deplacementRoutes'));
 app.use('/api/pv-reunions', require('./routes/pvReunionRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/logistique', require('./routes/logistiqueRoutes'));
+app.use('/api/prospection', require('./routes/prospectionRoutes'));
 
 app.use((_req, res) => {
   res.status(404).json({ message: 'Route introuvable.' });
