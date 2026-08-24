@@ -42,7 +42,7 @@ async function syncMaterielStock(conn, materielId) {
 
   let etat = m.etat;
   if (etat !== 'en_reparation' && etat !== 'hors_service') {
-    etat = dispo <= 0 ? 'emprunte' : 'disponible';
+    etat = emprunte > 0 ? 'emprunte' : dispo > 0 ? 'disponible' : 'emprunte';
   }
 
   await conn.execute(
@@ -98,7 +98,7 @@ async function getAll({ search = '', etat = '', categorie = '' } = {}) {
     const dispo = Number(r.quantite_disponible) || 0;
     let etat = r.etat;
     if (etat !== 'en_reparation' && etat !== 'hors_service') {
-      if (dispo <= 0 && emprunts > 0) etat = 'emprunte';
+      if (emprunts > 0) etat = 'emprunte';
       else if (dispo > 0) etat = 'disponible';
     }
     return { ...r, emprunts_en_cours: emprunts, etat };

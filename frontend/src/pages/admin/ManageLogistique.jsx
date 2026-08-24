@@ -16,6 +16,30 @@ const ETATS = [
 
 const ETAT_LABEL = Object.fromEntries(ETATS.map((e) => [e.value, e.label]));
 
+function itemStatus(item) {
+  const emprunts = Number(item.emprunts_en_cours) || 0;
+  const dispo = Number(item.quantite_disponible) || 0;
+  if (item.etat === 'en_reparation') {
+    return { key: 'en_reparation', label: ETAT_LABEL.en_reparation };
+  }
+  if (item.etat === 'hors_service') {
+    return { key: 'hors_service', label: ETAT_LABEL.hors_service };
+  }
+  if (emprunts > 0) {
+    return {
+      key: 'emprunte',
+      label:
+        dispo <= 0
+          ? ETAT_LABEL.emprunte
+          : `${emprunts} emprunté${emprunts > 1 ? 's' : ''}`,
+    };
+  }
+  if (dispo > 0) {
+    return { key: 'disponible', label: ETAT_LABEL.disponible };
+  }
+  return { key: 'hors_service', label: 'Rupture de stock' };
+}
+
 const empty = {
   nom: '',
   categorie: '',
@@ -523,6 +547,7 @@ export default function ManageLogistique() {
               <div className={styles.grid}>
                 {items.map((item, index) => {
                   const ratio = stockRatio(item);
+                  const status = itemStatus(item);
                   const barClass =
                     ratio === 0
                       ? styles.barFillEmpty
@@ -544,8 +569,8 @@ export default function ManageLogistique() {
                           <h3 className={styles.cardTitle}>{item.nom}</h3>
                           <p className={styles.cardMeta}>{item.categorie || 'Sans catégorie'}</p>
                         </div>
-                        <span className={`${styles.badge} ${styles[`badge_${item.etat}`] || ''}`}>
-                          {ETAT_LABEL[item.etat] || item.etat}
+                        <span className={`${styles.badge} ${styles[`badge_${status.key}`] || ''}`}>
+                          {status.label}
                         </span>
                       </div>
 
