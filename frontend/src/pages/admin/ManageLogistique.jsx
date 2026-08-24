@@ -54,6 +54,29 @@ function itemStatus(item, filterEtat = '') {
   return { key: 'hors_service', label: 'Rupture de stock' };
 }
 
+/** En « Tous », séparer disponible et emprunté en deux cartes si les deux existent. */
+function expandItemsForDisplay(items, filterEtat = '') {
+  if (filterEtat) {
+    return items.map((item) => ({ item, view: filterEtat }));
+  }
+
+  const expanded = [];
+  for (const item of items) {
+    if (item.etat === 'en_reparation' || item.etat === 'hors_service') {
+      expanded.push({ item, view: item.etat });
+      continue;
+    }
+
+    const dispo = Number(item.quantite_disponible) || 0;
+    const emprunts = Number(item.emprunts_en_cours) || 0;
+
+    if (dispo > 0) expanded.push({ item, view: 'disponible' });
+    if (emprunts > 0) expanded.push({ item, view: 'emprunte' });
+    if (dispo <= 0 && emprunts <= 0) expanded.push({ item, view: 'disponible' });
+  }
+  return expanded;
+}
+
 const empty = {
   nom: '',
   categorie: '',
@@ -162,6 +185,11 @@ export default function ManageLogistique() {
       enRetard: actifs.filter(isOverdue).length,
     };
   }, [allItems, loans]);
+
+  const displayedItems = useMemo(
+    () => expandItemsForDisplay(items, filterEtat),
+    [items, filterEtat]
+  );
 
   const reset = () => {
     setForm(empty);
@@ -509,7 +537,7 @@ export default function ManageLogistique() {
               <div className={styles.panelHead}>
                 <h2>Inventaire</h2>
                 <span>
-                  {items.length} article{items.length === 1 ? '' : 's'}
+                  {displayedItems.length} article{displayedItems.length === 1 ? '' : 's'}
                 </span>
               </div>
 
@@ -552,12 +580,12 @@ export default function ManageLogistique() {
               </div>
             ) : (
               <div className={styles.grid}>
-                {items.map((item, index) => {
-                  const stockMode = filterEtat === 'emprunte' ? 'emprunte' : 'disponible';
+                {expandItemsForDisplay(items, filterEtat).map(({ item, view }, index) => {
+                  const stockMode = view === 'emprunte' ? 'emprunte' : 'disponible';
                   const ratio = stockRatio(item, stockMode);
-                  const status = itemStatus(item, filterEtat);
+                  const status = itemStatus(item, view);
                   const barClass =
-                    filterEtat === 'emprunte'
+                    view === 'emprunte'
                       ? ratio === 0
                         ? styles.barFillEmpty
                         : styles.barFillLow
@@ -567,12 +595,13 @@ export default function ManageLogistique() {
                           ? styles.barFillLow
                           : styles.barFill;
                   const canBorrow =
+                    view === 'disponible' &&
                     Number(item.quantite_disponible) > 0 &&
                     item.etat !== 'hors_service' &&
                     item.etat !== 'en_reparation';
                   return (
                     <article
-                      key={item.id}
+                      key={`${item.id}-${view}`}
                       className={styles.card}
                       style={{ animationDelay: `${Math.min(index, 10) * 0.04}s` }}
                     >
@@ -591,12 +620,12 @@ export default function ManageLogistique() {
                       <div className={styles.stockRow}>
                         <div className={styles.stockLabel}>
                           <span>
-                            {filterEtat === 'emprunte'
+                            {view === 'emprunte'
                               ? 'Empruntés / Total'
                               : 'Disponibles / Total'}
                           </span>
                           <strong>
-                            {filterEtat === 'emprunte'
+                            {view === 'emprunte'
                               ? `${item.emprunts_en_cours}/${item.quantite_totale}`
                               : `${item.quantite_disponible}/${item.quantite_totale}`}
                           </strong>
@@ -610,12 +639,12 @@ export default function ManageLogistique() {
                         <div>
                           Lieu : <strong>{item.emplacement || '—'}</strong>
                         </div>
-                        {filterEtat !== 'emprunte' && Number(item.emprunts_en_cours) > 0 ? (
+                        {view !== 'emprunte' && Number(item.emprunts_en_cours) > 0 ? (
                           <div>
                             Empruntés : <strong>{item.emprunts_en_cours}</strong>
                           </div>
                         ) : null}
-                        {filterEtat === 'emprunte' && Number(item.quantite_disponible) > 0 ? (
+                        {view === 'emprunte' && Number(item.quantite_disponible) > 0 ? (
                           <div>
                             Disponibles : <strong>{item.quantite_disponible}</strong>
                           </div>
