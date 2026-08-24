@@ -11,13 +11,37 @@ frontend/.env.local
 # Uploads (keep folder, ignore most files)
 backend/uploads/*
 !backend/uploads/.gitkeep
-# Médias publics nécessaires à l'hébergement (accueil + réalisations)
+# Médias publics nécessaires à l'hébergement
 !backend/uploads/gallery/
 !backend/uploads/gallery/**
 !backend/uploads/projects/
 !backend/uploads/projects/**
 !backend/uploads/club/
 !backend/uploads/club/**
+!backend/uploads/announcements/
+!backend/uploads/announcements/**
+!backend/uploads/board/
+!backend/uploads/board/**
+!backend/uploads/events/
+!backend/uploads/events/**
+!backend/uploads/deplacements/
+!backend/uploads/deplacements/**
+!backend/uploads/project-members/
+!backend/uploads/project-members/**
+!backend/uploads/project-steps/
+!backend/uploads/project-steps/**
+!backend/uploads/recruitment/
+!backend/uploads/recruitment/**
+!backend/uploads/pv-reunions/
+!backend/uploads/pv-reunions/**
+!backend/uploads/trainings/
+!backend/uploads/trainings/**
+!backend/uploads/prospection/
+!backend/uploads/prospection/**
+!backend/uploads/merch/
+!backend/uploads/merch/**
+!backend/uploads/finance/
+!backend/uploads/finance/**
 
 # Google service account secrets
 backend/credentials/*.json
