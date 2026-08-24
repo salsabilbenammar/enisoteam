@@ -8,9 +8,16 @@ backend/.env
 frontend/.env
 frontend/.env.local
 
-# Uploads (keep folder, ignore files)
+# Uploads (keep folder, ignore most files)
 backend/uploads/*
 !backend/uploads/.gitkeep
+# Médias publics nécessaires à l'hébergement (accueil + réalisations)
+!backend/uploads/gallery/
+!backend/uploads/gallery/**
+!backend/uploads/projects/
+!backend/uploads/projects/**
+!backend/uploads/club/
+!backend/uploads/club/**
 
 # Google service account secrets
 backend/credentials/*.json
@@ -19,3 +26,6 @@ backend/credentials/*.json
 frontend/dist/
 .DS_Store
 *.log
+
+# Exports locaux temporaires
+database/_export_hosting/

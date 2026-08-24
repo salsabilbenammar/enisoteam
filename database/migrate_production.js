@@ -24,6 +24,12 @@ const scripts = [
   'migrate_project_steps.js',
   'migrate_project_step_documents.js',
   'migrate_project_publish.js',
+  'migrate_project_gallery.js',
+  'migrate_project_archive.js',
+  'migrate_project_lead.js',
+  'migrate_project_photos_supervisors.js',
+  'migrate_project_progress.js',
+  'migrate_project_participant_fields.js',
 ];
 
 let failed = 0;
