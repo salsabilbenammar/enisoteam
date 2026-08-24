@@ -18,6 +18,7 @@ const scripts = [
   'migrate_logistique.js',
   'migrate_logistique_emprunts.js',
   'migrate_pv_reunions.js',
+  'migrate_stored_files.js',
   'migrate_deplacements.js',
   'migrate_attendance.js',
   'migrate_finance_module.js',

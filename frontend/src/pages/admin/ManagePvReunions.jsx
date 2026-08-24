@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api, { assetUrl } from '../../services/api';
+import api, { openUploadAsset } from '../../services/api';
 import Loader from '../../components/common/Loader';
 import { useConfirm } from '../../components/common/ConfirmDialog';
 import ReadOnlyBanner from '../../components/admin/ReadOnlyBanner';
@@ -154,9 +154,13 @@ export default function ManagePvReunions() {
           {form.fichier_url && !form.fichier && (
             <p style={{ marginBottom: '0.5rem' }}>
               Fichier actuel :{' '}
-              <a href={assetUrl(form.fichier_url)} target="_blank" rel="noreferrer">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => openUploadAsset(form.fichier_url, 'pv.pdf')}
+              >
                 Voir le document
-              </a>
+              </button>
             </p>
           )}
           <input
@@ -231,9 +235,13 @@ export default function ManagePvReunions() {
                     </td>
                     <td>
                       {item.fichier ? (
-                        <a href={assetUrl(item.fichier)} target="_blank" rel="noreferrer">
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => openUploadAsset(item.fichier, `${item.titre || 'pv'}.pdf`)}
+                        >
                           Ouvrir
-                        </a>
+                        </button>
                       ) : (
                         '—'
                       )}

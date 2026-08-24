@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const storedFiles = require('../services/storedFileService');
 
 const uploadsRoot = path.join(__dirname, '..', 'uploads');
 const dirs = [
@@ -37,8 +38,9 @@ const cvMime = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
+/** Stockage disque + copie MySQL (survit aux redéploiements Render Free). */
 function makeStorage(subfolder) {
-  return multer.diskStorage({
+  const disk = multer.diskStorage({
     destination: (_req, _file, cb) => {
       const dest = path.join(uploadsRoot, subfolder);
       if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
@@ -50,6 +52,50 @@ function makeStorage(subfolder) {
       cb(null, `${unique}${ext}`);
     },
   });
+
+  return {
+    _handleFile(req, file, cb) {
+      disk._handleFile(req, file, (err, info) => {
+        if (err) return cb(err);
+        const publicPath = `/uploads/${subfolder}/${info.filename}`;
+        storedFiles
+          .upsertFromDisk(publicPath, info.path, {
+            mimeType: file.mimetype,
+            originalName: file.originalname,
+          })
+          .then(() => cb(null, info))
+          .catch((persistErr) => {
+            let size = 0;
+            try {
+              size = fs.statSync(info.path).size;
+            } catch (_) {
+              /* ignore */
+            }
+            // Vidéos > 20 Mo : trop lourdes pour Aiven Free — restent sur disque/git uniquement
+            if (size > 20 * 1024 * 1024) {
+              console.warn(`[stored-files] skip large file ${publicPath} (${size} bytes)`);
+              return cb(null, info);
+            }
+            console.error(`[stored-files] ${publicPath}:`, persistErr.message);
+            fs.unlink(info.path, () => {});
+            cb(
+              new Error(
+                'Impossible d’enregistrer le fichier de façon persistante. Réessayez dans un instant.'
+              )
+            );
+          });
+      });
+    },
+    _removeFile(req, file, cb) {
+      disk._removeFile(req, file, (err) => {
+        const publicPath = `/uploads/${subfolder}/${file.filename}`;
+        storedFiles
+          .removeByPath(publicPath)
+          .catch(() => {})
+          .finally(() => cb(err));
+      });
+    },
+  };
 }
 
 function imageFilter(_req, file, cb) {

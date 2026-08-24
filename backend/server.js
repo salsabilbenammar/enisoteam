@@ -54,6 +54,31 @@ app.use('/uploads/project-steps', (_req, res) => {
 
 app.use('/uploads', express.static(uploadsRoot));
 
+// Disque Render effacé → restaurer depuis MySQL (Aiven)
+app.use('/uploads', async (req, res, next) => {
+  try {
+    const publicPath = `/uploads${req.path}`;
+    const stored = await require('./services/storedFileService').getByPath(publicPath);
+    if (!stored?.data) {
+      res.status(404).type('text').send('Fichier introuvable.');
+      return;
+    }
+    const abs = path.join(uploadsRoot, req.path.replace(/^\//, ''));
+    try {
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      fs.writeFileSync(abs, stored.data);
+    } catch (_) {
+      /* cache disque optionnel */
+    }
+    if (stored.mime_type) res.type(stored.mime_type);
+    else res.type('application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(stored.data);
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get('/api/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -113,5 +138,9 @@ app.listen(PORT, '0.0.0.0', () => {
   if (serveFrontend) {
     console.log(`Frontend (dist) servi depuis ${frontendDist}`);
   }
+  require('./services/storedFileService')
+    .ensureTable()
+    .then(() => console.log('stored_files prêt'))
+    .catch((err) => console.error('stored_files:', err.message));
   require('./services/recruitmentCron').startRecruitmentCron();
 });
