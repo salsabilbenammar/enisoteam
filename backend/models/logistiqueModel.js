@@ -60,7 +60,19 @@ async function getAll({ search = '', etat = '', categorie = '' } = {}) {
     const q = `%${search.trim()}%`;
     params.push(q, q, q, q);
   }
-  if (etat && ETATS.includes(etat)) {
+  if (etat === 'disponible') {
+    where.push(
+      "(m.quantite_disponible > 0 AND m.etat NOT IN ('en_reparation', 'hors_service'))"
+    );
+  } else if (etat === 'emprunte') {
+    where.push(`(
+      m.etat = 'emprunte'
+      OR EXISTS (
+        SELECT 1 FROM materiel_emprunts e
+        WHERE e.materiel_id = m.id AND e.statut = 'en_cours'
+      )
+    )`);
+  } else if (etat && ETATS.includes(etat)) {
     where.push('m.etat = ?');
     params.push(etat);
   }
@@ -81,10 +93,16 @@ async function getAll({ search = '', etat = '', categorie = '' } = {}) {
      ORDER BY m.nom ASC, m.id ASC`,
     params
   );
-  return rows.map((r) => ({
-    ...r,
-    emprunts_en_cours: Number(r.emprunts_en_cours) || 0,
-  }));
+  return rows.map((r) => {
+    const emprunts = Number(r.emprunts_en_cours) || 0;
+    const dispo = Number(r.quantite_disponible) || 0;
+    let etat = r.etat;
+    if (etat !== 'en_reparation' && etat !== 'hors_service') {
+      if (dispo <= 0 && emprunts > 0) etat = 'emprunte';
+      else if (dispo > 0) etat = 'disponible';
+    }
+    return { ...r, emprunts_en_cours: emprunts, etat };
+  });
 }
 
 async function getById(id) {

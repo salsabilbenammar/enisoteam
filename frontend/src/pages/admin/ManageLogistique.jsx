@@ -68,6 +68,7 @@ export default function ManageLogistique() {
   const confirm = useConfirm();
   const [tab, setTab] = useState('inventaire');
   const [items, setItems] = useState([]);
+  const [allItems, setAllItems] = useState([]);
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(empty);
@@ -80,6 +81,12 @@ export default function ManageLogistique() {
   const [filterEtat, setFilterEtat] = useState('');
   const [loanFilter, setLoanFilter] = useState('en_cours');
   const [search, setSearch] = useState('');
+
+  const loadAllItems = () =>
+    api
+      .get('/logistique')
+      .then((res) => setAllItems(res.data || []))
+      .catch(() => {});
 
   const loadItems = () =>
     api
@@ -104,7 +111,7 @@ export default function ManageLogistique() {
     setLoading(true);
     setError('');
     try {
-      await Promise.all([loadItems(), loadLoans()]);
+      await Promise.all([loadAllItems(), loadItems(), loadLoans()]);
     } finally {
       setLoading(false);
     }
@@ -118,12 +125,12 @@ export default function ManageLogistique() {
   const stats = useMemo(() => {
     const actifs = loans.filter((l) => l.statut === 'en_cours');
     return {
-      total: items.length,
-      disponible: items.filter((i) => Number(i.quantite_disponible) > 0).length,
+      total: allItems.length,
+      disponible: allItems.filter((i) => Number(i.quantite_disponible) > 0).length,
       empruntsActifs: actifs.length,
       enRetard: actifs.filter(isOverdue).length,
     };
-  }, [items, loans]);
+  }, [allItems, loans]);
 
   const reset = () => {
     setForm(empty);
@@ -619,7 +626,7 @@ export default function ManageLogistique() {
                   onChange={(e) => setLoanForm({ ...loanForm, materiel_id: e.target.value })}
                 >
                   <option value="">Choisir…</option>
-                  {(items.length ? items : []).map((m) => (
+                  {(allItems.length ? allItems : items).map((m) => (
                     <option
                       key={m.id}
                       value={m.id}
