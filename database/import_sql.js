@@ -31,6 +31,9 @@ async function main() {
   const password = process.env.DB_PASSWORD || '';
   const database = process.env.DB_NAME || 'eniso_team';
   const port = Number(process.env.DB_PORT) || 3306;
+  const useSsl =
+    String(process.env.DB_SSL || '').toLowerCase() === 'true' ||
+    String(process.env.DB_SSL || '') === '1';
 
   if (!password || user === 'CHANGEZ_MOI' || database === 'CHANGEZ_MOI') {
     throw new Error('Remplis DB_USER, DB_PASSWORD et DB_NAME dans backend/.env');
@@ -46,6 +49,7 @@ async function main() {
     database,
     multipleStatements: true,
     charset: 'utf8mb4',
+    ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
   });
 
   const raw = fs.readFileSync(sqlPath, 'utf8');
