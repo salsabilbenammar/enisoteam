@@ -219,6 +219,52 @@ Lien de connexion : ${loginUrl}
   };
 }
 
+function buildSeniorAccessEmail({ nom, email }, credentials = {}) {
+  const frontend = frontendBase();
+  const loginUrl = `${frontend}/login`;
+  const accountEmail = credentials.email || email || '';
+  const password = credentials.temporaryPassword || '';
+  const vars = {
+    Nom: nom || '',
+    Email: accountEmail,
+    Password: password || '—',
+    LienConnexion: loginUrl,
+  };
+  const subject = 'Votre accès membre ENISO Team';
+  const body = `Bonjour [Nom],
+
+Bienvenue parmi les seniors de l'ENISO Team.
+
+Un compte membre a été créé pour vous. Voici vos identifiants :
+
+Email : [Email]
+Mot de passe (généré automatiquement) : [Password]
+Lien de connexion : [LienConnexion]
+
+Pour votre sécurité, changez ce mot de passe dès votre première connexion (menu Profil).
+
+À très bientôt,
+
+— ENISO Team`;
+
+  let text = applyMailPlaceholders(body, vars);
+  if (password && !text.includes(password)) {
+    text += `
+
+--- Accès membre ---
+Email : ${accountEmail}
+Mot de passe (généré automatiquement) : ${password}
+Lien de connexion : ${loginUrl}
+`;
+  }
+
+  return {
+    subject: applyMailPlaceholders(subject, vars),
+    text,
+    html: textToHtml(text),
+  };
+}
+
 function buildMediaSuccessEmail(candidate, settings = {}) {
   const nom = `${candidate.prenom} ${candidate.nom}`.trim();
   const vars = { Nom: nom };
@@ -260,5 +306,6 @@ module.exports = {
   buildSuccessPaymentEmail,
   buildMediaSuccessEmail,
   buildPaymentConfirmedEmail,
+  buildSeniorAccessEmail,
   formatDateFr,
 };

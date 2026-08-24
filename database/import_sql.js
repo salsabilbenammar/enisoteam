@@ -49,8 +49,15 @@ async function main() {
   });
 
   const raw = fs.readFileSync(sqlPath, 'utf8');
+  // FreeSQL / MySQL 5.5 : un seul TIMESTAMP avec CURRENT_TIMESTAMP par table
   const cleaned = raw
     .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/CREATE\s+DATABASE[\s\S]*?;/gi, '')
+    .replace(/USE\s+`?[\w]+`?\s*;/gi, '')
+    .replace(
+      /`(\w*updated_at)`\s+TIMESTAMP\s+NOT NULL\s+DEFAULT\s+CURRENT_TIMESTAMP\s+ON UPDATE\s+CURRENT_TIMESTAMP/gi,
+      '`$1` DATETIME NULL DEFAULT NULL'
+    )
     .split('\n')
     .filter((line) => {
       const t = line.trim();

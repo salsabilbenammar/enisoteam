@@ -26,12 +26,14 @@ Navigateur → Vercel (React) → Render (API Node) → db4free / FreeSQL (MySQL
 
 ## Étape 1 — MySQL gratuit
 
-1. Crée un compte sur [db4free.net](https://www.db4free.net/) (ou [freesqldatabase.com](https://www.freesqldatabase.com/)).
-2. Crée une base, note :
-   - Host (ex. `db4free.net`)
-   - Port `3306`
-   - User / Password / Database name
-3. **Depuis ton PC** (avec Node installé), configure temporairement `backend/.env` :
+> **Important :** n’utilise **pas** FreeSQLDatabase pour ce projet  
+> (MySQL **5.5** trop ancien : pas de JSON, timestamps limités, 5 Mo max).
+
+### Utilise plutôt [db4free.net](https://www.db4free.net/) (avec **`.net`**, pas `.tn`)
+
+1. Crée un compte + une base MySQL 8.
+2. Note : Host (`db4free.net`), Port `3306`, User, Password, Database name.
+3. **Depuis ton PC**, configure `backend/.env` :
 
 ```env
 DB_HOST=db4free.net

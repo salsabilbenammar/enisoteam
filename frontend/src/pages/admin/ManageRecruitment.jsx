@@ -118,6 +118,8 @@ export default function ManageRecruitment() {
   const [slots, setSlots] = useState([]);
   const [slotForm, setSlotForm] = useState(emptySlot);
   const [slotDateMin] = useState(() => defaultDateMin());
+  const [seniorForm, setSeniorForm] = useState({ nom: '', email: '' });
+  const [savingSenior, setSavingSenior] = useState(false);
   const [schedule, setSchedule] = useState([]);
   const [orgDate, setOrgDate] = useState('');
   const [orgTime, setOrgTime] = useState('');
@@ -496,6 +498,27 @@ export default function ManageRecruitment() {
     }
   };
 
+  const inviteSenior = async (e) => {
+    e.preventDefault();
+    const nom = seniorForm.nom.trim();
+    const email = seniorForm.email.trim();
+    if (!nom || !email) {
+      setError('Nom et email requis.');
+      return;
+    }
+    setSavingSenior(true);
+    setError('');
+    try {
+      const { data } = await api.post('/recruitment/seniors', { nom, email });
+      flash(data.message || `Identifiants envoyés à ${email}.`);
+      setSeniorForm({ nom: '', email: '' });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Envoi impossible.');
+    } finally {
+      setSavingSenior(false);
+    }
+  };
+
   const saveSlot = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -727,6 +750,7 @@ export default function ManageRecruitment() {
           ['interviews', 'Entretiens', interviewsCount],
           ['presents', 'Présents', presentsCount],
           ['slots', 'Créneaux', slots.length],
+          ['seniors', 'Seniors', null],
           ['schedule', 'Organisation', null],
           ['settings', 'Paramètres', null],
         ].map(([id, label, count]) => (
@@ -1106,6 +1130,40 @@ export default function ManageRecruitment() {
             ))}
           </div>
         </>
+      )}
+
+      {tab === 'seniors' && (
+        <form className="card form" onSubmit={inviteSenior}>
+          <h3>Inviter un senior</h3>
+          <p className={styles.meta} style={{ marginBottom: '1rem' }}>
+            Un compte membre est créé, puis un e-mail avec l’e-mail, le mot de passe et le lien de
+            connexion est envoyé. Si l’adresse existe déjà, rien n’est modifié.
+          </p>
+          <div className="form-row two">
+            <div className="form-group">
+              <label>Nom *</label>
+              <input
+                value={seniorForm.nom}
+                onChange={(e) => setSeniorForm({ ...seniorForm, nom: e.target.value })}
+                placeholder="Nom et prénom"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Email *</label>
+              <input
+                type="email"
+                value={seniorForm.email}
+                onChange={(e) => setSeniorForm({ ...seniorForm, email: e.target.value })}
+                placeholder="senior@exemple.com"
+                required
+              />
+            </div>
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={savingSenior}>
+            {savingSenior ? 'Envoi…' : 'Créer le compte et envoyer l’accès'}
+          </button>
+        </form>
       )}
 
       {tab === 'schedule' && (

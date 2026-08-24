@@ -12,9 +12,11 @@ const {
   buildSuccessPaymentEmail,
   buildMediaSuccessEmail,
   buildPaymentConfirmedEmail,
+  buildSeniorAccessEmail,
 } = require('../services/recruitmentMailTemplates');
 const googleSheets = require('../services/googleSheetsService');
 const { provisionMemberFromCandidate } = require('../services/memberProvisionService');
+const memberModel = require('../models/memberModel');
 const {
   STREAM_MEDIA,
   normalizeStream,
@@ -712,6 +714,73 @@ async function sendPaymentAccessMail(req, res, next) {
   }
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function provisionSenior(req, res, next) {
+  try {
+    const nom = String(req.body.nom || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    if (!nom || !email) {
+      return res.status(400).json({ message: 'Nom et email requis.' });
+    }
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Email invalide.' });
+    }
+
+    const existing = await memberModel.findByEmail(email);
+    if (existing) {
+      return res.status(409).json({
+        message: 'Un compte membre existe déjà pour cet email. Gérez-le dans Membres.',
+      });
+    }
+
+    let provisioned;
+    try {
+      provisioned = await provisionMemberFromCandidate({
+        prenom: '',
+        nom,
+        email,
+        filiere: null,
+      });
+    } catch (provisionErr) {
+      console.error('[recruitment] Création compte senior impossible:', provisionErr.message);
+      return res.status(500).json({
+        message: `Impossible de créer le compte membre : ${provisionErr.message}`,
+      });
+    }
+
+    const mail = buildSeniorAccessEmail(
+      { nom, email: provisioned.email },
+      {
+        email: provisioned.email,
+        temporaryPassword: provisioned.temporaryPassword,
+      }
+    );
+
+    const queued = await emailQueueModel.sendImmediate({
+      candidate_id: null,
+      email_to: provisioned.email,
+      type: 'senior_access',
+      subject: mail.subject,
+      body: mail.text,
+      html: mail.html,
+    });
+
+    const mailNote = queued.simulated
+      ? ' (SMTP non configuré : email simulé dans les logs serveur)'
+      : '';
+
+    res.status(201).json({
+      message: `Compte membre créé. Identifiants envoyés à ${provisioned.email}.${mailNote}`,
+      member: provisioned.member,
+      created: provisioned.created,
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
 /* ─── Slots ─── */
 
 async function listSlots(req, res, next) {
@@ -839,6 +908,7 @@ module.exports = {
   schedulePaymentRequests,
   confirmPayments,
   sendPaymentAccessMail,
+  provisionSenior,
   listSlots,
   createSlot,
   updateSlot,

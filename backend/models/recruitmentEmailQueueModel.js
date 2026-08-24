@@ -62,14 +62,14 @@ async function sendImmediate(
   const scheduled_at = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
   try {
-    await sendMail({ to: email_to, subject, text: body, html });
+    const info = await sendMail({ to: email_to, subject, text: body, html });
     const [result] = await pool.execute(
       `INSERT INTO recruitment_email_queue
         (candidate_id, email_to, type, subject, body, scheduled_at, statut, sent_at, error)
        VALUES (?, ?, ?, ?, ?, ?, 'sent', NOW(), NULL)`,
       [candidate_id || null, email_to, type, subject, body, scheduled_at]
     );
-    return { id: result.insertId, sent: true };
+    return { id: result.insertId, sent: true, simulated: Boolean(info && info.simulated) };
   } catch (err) {
     const [result] = await pool.execute(
       `INSERT INTO recruitment_email_queue

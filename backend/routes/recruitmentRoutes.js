@@ -27,6 +27,7 @@ router.post('/candidates/:id/mark-present', canWrite, recruitmentController.mark
 router.post('/candidates/:id/mark-absent', canWrite, recruitmentController.markAbsent);
 router.post('/candidates/:id/send-success-payment', canWrite, recruitmentController.sendSuccessPayment);
 router.post('/candidates/:id/send-payment-access', canWrite, recruitmentController.sendPaymentAccessMail);
+router.post('/seniors', canWrite, recruitmentController.provisionSenior);
 
 router.post('/invitations', canWrite, recruitmentController.scheduleInvitations);
 router.post('/payment-requests', canWrite, recruitmentController.schedulePaymentRequests);
